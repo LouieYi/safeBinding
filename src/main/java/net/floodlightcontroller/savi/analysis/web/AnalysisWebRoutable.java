@@ -4,7 +4,6 @@ import org.restlet.Context;
 import org.restlet.routing.Router;
 
 import net.floodlightcontroller.restserver.RestletRoutable;
-import net.floodlightcontroller.savi.rest.ChangeTableResource;
 
 public class AnalysisWebRoutable implements RestletRoutable {
 
@@ -27,7 +26,6 @@ public class AnalysisWebRoutable implements RestletRoutable {
 		router.attach("/packets/drop/{"+ DPID_STR+ "}/{"+ PORT_STR +"}/json" , PacketOfFlowResource.class);
 		router.attach("/packets/drop/json" , PacketOfAllFlowResource.class);
 		router.attach("/ports/json" , PortSetResource.class);
-		router.attach("/table/change/json", ChangeTableResource.class);
 		router.attach("/plan/{" + PLAN_TYPE +"}/json" , PlanResource.class);
 
 		router.attach("/traffic/get/out", SpecifyOutflowResource.class);
@@ -35,6 +33,7 @@ public class AnalysisWebRoutable implements RestletRoutable {
 		router.attach("/traffic/get/in", InTrafficResource.class);
 		router.attach("/traffic/update/in", InTrafficResource.class);
 		
+		router.attach("/hosts/credit/json", HostsCreditResource.class);
 		
 		return router;                                                            
 	}

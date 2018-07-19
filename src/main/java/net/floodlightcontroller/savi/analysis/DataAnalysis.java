@@ -139,6 +139,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	
 	//分别表示正常端口队列、异常端口队列
 	private Queue<SwitchPort> normalPorts = new ConcurrentLinkedQueue<>();
+	private Set<SwitchPort> pickFromNormal = new HashSet<>();
 	private Queue<SwitchPort> abnormalPorts = new ConcurrentLinkedQueue<>();
 	private Map<SwitchPort, Integer> observePorts = new ConcurrentHashMap<>();
 	//上一轮的正常端口
@@ -156,13 +157,14 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	//正常队列每次选取的端口数
 	private static int normalNum = 3;
 	//定义观察次数，超过3次正常才放回正常队列
-	private static int observeCount = 3;
+//	private static int observeCount = 3;
 	
 	//测试用的定时器timer
 	private SingletonTask testTimer;
 	private SingletonTask timer2;
 	//写累积历史数据的timer
 	private SingletonTask flowlogTimer;
+	private SingletonTask checkRules;
 	
 	//定义tableId
 	private static TableId STATIC_TABLE_ID=TableId.of(0);
@@ -176,7 +178,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	//每个交换机在绑定表里的端口数
 	private Map<DatapathId, Integer> portsInBind;
 	//用于判断是否需要静态和动态转换
-	private Map<DatapathId, Boolean> convertFlag		=new HashMap<>();
+//	private Map<DatapathId, Boolean> convertFlag		=new HashMap<>();
 	//修改优先级的时间周期
 	private short cycleTime=5;
 	private short period=20;
@@ -193,6 +195,8 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private Set<DatapathId> staticSwId;
 	//fix bug
 	private long stableTime	;
+	//主机信用等级
+	private Map<SwitchPort, Integer> hostsCredit		=new HashMap<>();
 	
 //	private Map<DatapathId, Integer> timeToMatch	=new HashMap<>();
 	
@@ -262,9 +266,6 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		//启动rest api
 		restApiService.addRestletRoutable(new AnalysisWebRoutable());
 		
-//		ScheduledExecutorService ses0 = threadPoolService.getScheduledExecutor();
-//		firstStage(ses0);
-//		while(!ses0.isTerminated());
 		firstStage();
 		//下面在系统运行期间输出调试信息
 		ScheduledExecutorService ses1 = threadPoolService.getScheduledExecutor();
@@ -282,7 +283,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			}
 		});
 		//testTimer.reschedule(90, TimeUnit.SECONDS);
-		testTimer.reschedule(45, TimeUnit.SECONDS);
+		testTimer.reschedule(40, TimeUnit.SECONDS);
 		
 		ScheduledExecutorService ses2 = threadPoolService.getScheduledExecutor();
 		timer2 = new SingletonTask(ses2, new Runnable() {
@@ -302,7 +303,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			}
 		});
 		//这个地方不是定时器，而是延迟执行，因为timer2里面没有设置下一次重启时间。
-		timer2.reschedule(50, TimeUnit.SECONDS);
+		timer2.reschedule(45, TimeUnit.SECONDS);
 		
 		//该定时器专门用来写累积历史数据文件，这里只记录in流量，out流量或specifyOut流量暂时不管，一个定时器写多个文件情况未知。
 		ScheduledExecutorService ses3 = threadPoolService.getScheduledExecutor();
@@ -347,11 +348,20 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			}
 		});
 		//40s后保证数据收集线程已经开启，因为需要用到inPortsPacketsRes
-		flowlogTimer.reschedule(55, TimeUnit.SECONDS);
+		flowlogTimer.reschedule(50, TimeUnit.SECONDS);
 		
-//		ScheduledExecutorService ses4 = threadPoolService.getScheduledExecutor();
-//		SingletonTask staticLossRate= new SingletonTask(ses4, new Runnab);
-		
+		ScheduledExecutorService ses4 = threadPoolService.getScheduledExecutor();
+		checkRules= new SingletonTask(ses4, new Runnable() {
+			
+			@Override
+			public void run() {
+				for(DatapathId dpid : staticSwId) {
+					convertTable(dpid, false);
+				}
+				checkRules.reschedule(20, TimeUnit.SECONDS);
+			}
+		});
+		checkRules.reschedule(60, TimeUnit.SECONDS);
 	}
 
 	//2018.4.7之前，经测试，这个方法的累加结果和getOutPacketsByPort一致，可以用来统计出流量并实时刷新了
@@ -561,14 +571,13 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		
 		ScheduledExecutorService ses0=threadPoolService.getScheduledExecutor();
 		//对流收集器进行扩展，收集信息的过程采用原代码，主要扩展的是后续处理
-		initTimer = new SingletonTask(ses0, /*new Runnable()*/ new FlowStatisCollector(){
+		initTimer = new SingletonTask(ses0, /*new Runnable()*/ new Runnable(){
 			@Override
 			public void run(){
 				
 				normalPorts.addAll(rank.keySet());
 				
 				for(DatapathId switchId : portsInBind.keySet()) {
-					
 					IOFSwitch sw=switchService.getSwitch(switchId);
 					for(OFPort port : sw.getEnabledPortNumbers()) {
 						if(rank.containsKey(new SwitchPort(switchId, port))) continue;
@@ -582,30 +591,35 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 					}
 				}
 				
-				super.run();
-				//上面处理完后，packetOfFlows里面应该就有值了，先排序
+				for(SwitchPort switchPort : rank.keySet()) {
+					hostsCredit.put(switchPort, 24);
+				}
+				
+//				super.run();
+				//上面处理完后，packetOfFlows里面应该就有值了
 				/*
 				Set<SwitchPort> switchPorts = new HashSet<>();
 				//注意：20s后收集一次，得到的dropRate其实就是这20s累计的丢包情况
-				for(Map.Entry<SwitchPort, PacketOfFlow> item : packetOfFlows.entrySet()){
+				for(SwitchPort switchPort : rank.keySet()){
 					//丢包率小于阈值，将对应交换机流表删除，这里值为0.2
-					if(isNormal(item)){
-						switchPorts.add(item.getKey());
+					if(isNormal(switchPort)){
+						switchPorts.add(switchPort);
 						//加入正常端口列表
-						normalPorts.offer(item.getKey());
+						normalPorts.offer(switchPort);
 					}
 					//其他端口加入异常端口列表
 					else {
-						abnormalPorts.offer(item.getKey());
+						abnormalPorts.offer(switchPort);
 					}
 				}
 				doFlowRemove(switchPorts);
-				*/
-				//初始阶段的最后，发出信号，进入下一阶段，此时要打开两个数据收集线程
-				for(DatapathId swId : portsInBind.keySet()) {
-					convertFlag.put(swId, true);
-				}
+				*/ 
+//				doFlowRemove(rank.keySet());
+//				for(DatapathId swId : portsInBind.keySet()) {
+//					convertFlag.put(swId, true);
+//				}
 				
+				//初始阶段的最后，发出信号，进入下一阶段，此时要打开两个数据收集线程
 				enableAnalysis(true);
 				StringBuffer sb = new StringBuffer();
 				testPortSet(sb, normalPorts, "normal");
@@ -618,7 +632,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			}
 		});
 		//initTimer.reschedule(initInterval, TimeUnit.MINUTES);
-		initTimer.reschedule(40, TimeUnit.SECONDS);
+		initTimer.reschedule(33, TimeUnit.SECONDS);
 	}
 	
 	private void doFlowRemove(Set<SwitchPort> switchPorts) {
@@ -627,8 +641,10 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			Match.Builder mb=OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 			mb.setExact(MatchField.IN_PORT, switchPort.getPort());
 			removeActions.add(FlowActionFactory.getFlowRemoveAction(switchPort.getSwitchDPID(), DYNAMIC_TABLE_ID, mb.build()));
+			packetOfFlows.remove(switchPort);
 		}
 		saviProvider.pushFlowActions(removeActions);
+		
 	}
 	/*
 	private void doFlowRemove(Set<SwitchPort> switchPorts){
@@ -780,22 +796,23 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		//System.out.println("开启端口处理线程======================");
 		//4s后开始执行，每隔6s执行一次
 		normalPortSchedule = threadPoolService.getScheduledExecutor().
-				scheduleAtFixedRate(new NormalPortThread(), flowStasInterval*1220, flowStasInterval*1000, TimeUnit.MILLISECONDS);
+				scheduleAtFixedRate(new NormalPortThread(), flowStasInterval*220, flowStasInterval*1000, TimeUnit.MILLISECONDS);
 		//5s后开始执行，每隔6s执行一次
 		observePortSchedule =threadPoolService.getScheduledExecutor().
-				scheduleAtFixedRate(new ObservePortThread(), flowStasInterval*1230, flowStasInterval*1000, TimeUnit.MILLISECONDS);
+				scheduleAtFixedRate(new ObservePortThread(), flowStasInterval*230, flowStasInterval*1000, TimeUnit.MILLISECONDS);
 		//5s后开始执行，每隔6s执行一次
 		abnormalPortSchedule = threadPoolService.getScheduledExecutor()
-				.scheduleAtFixedRate(new AbnormalPortThread(), flowStasInterval*1210, flowStasInterval*1000, TimeUnit.MILLISECONDS);
+				.scheduleAtFixedRate(new AbnormalPortThread(), flowStasInterval*210, flowStasInterval*1000, TimeUnit.MILLISECONDS);
 	}
 
 	private class NormalPortThread extends Thread {
 		@Override
 		public void run() {
-			System.out.println("normal =================");
+//			System.out.println("normal =================");
+			
 			SwitchPort cur = null;
 			Set<SwitchPort> handleSet = new HashSet<>();
-			
+			pickFromNormal.clear();
 //			getChangeNormalPorts(STATUS);
 			Iterator<SwitchPort> iterator = normalPorts.iterator();
 			while(iterator.hasNext()){
@@ -827,6 +844,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 				handleSet.add(cur);
 				//第一次放到观察列表，设置次数为0，方便观察线程处理
 				observePorts.put(cur, 0);
+				pickFromNormal.add(cur);
 			}
 			
 			
@@ -846,7 +864,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private class AbnormalPortThread extends Thread {
 		@Override
 		public void run() {
-			System.out.println("abnormal ===================");
+//			System.out.println("abnormal ===================");
 			//1.找出本次统计中，变得正常的端口，包括其他队列的元素
 //			getChangeNormalPorts(STATUS);
 			//2.选出和abnormalPorts的交集，移出到观察队列
@@ -884,7 +902,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private class ObservePortThread extends Thread {
 		@Override
 		public void run() {
-			System.out.println("observe ===================");
+//			System.out.println("observe ===================");
 			//对观察列表的处理是最麻烦的，它的端口有两种转换状态，而循环中对状态的修改感觉很不妥
 			//1.同样获取该轮的正常端口
 //			getChangeNormalPorts(STATUS);
@@ -893,19 +911,11 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			//循环遍历修改吧，出错也没办法了
 			Iterator<Map.Entry<SwitchPort, Integer>> iterator = observePorts.entrySet().iterator();
 			
-			int level = getLevelByQueueSize();
-			if(level == 0) {
-				observeCount = 2;
-			}
-			else {
-				observeCount = 3;
-			}
-			
 			while(iterator.hasNext()){
 				Map.Entry<SwitchPort, Integer> entry = iterator.next();
 				if(rightPorts.contains(entry.getKey())){
 					//发现该端口正常，正常次数超过3就移出
-					if(entry.getValue() + 1 >= observeCount) {
+					if(entry.getValue() >= 6-hostsCredit.get(entry.getKey())/8) {
 						//注意，先放到正常队列，再从map移出，这里其实是一个对象被引用到了不同容器，不知道会不会出问题
 						normalPorts.offer(entry.getKey());
 						actionPorts.add(entry.getKey());
@@ -930,16 +940,23 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		}
 	}
 	
-	private boolean isNormal(Map.Entry<SwitchPort, PacketOfFlow> entry) {
+	private boolean isNormal(SwitchPort switchPort) {
 		//注意，这里可以根据三个队列的长度比重，修改阈值（暂时去掉丢包率为1的边缘情况——样本过于偏差，虽然确实有可能丢包率为1，但前提是丢包数本身也很大）
 		// || entry.getValue().getLossRate() == 1
 	//	System.out.println("交换机：" + entry.getKey().getSwitchDPID().getLong() + "端口：" + entry.getKey().getPort().getPortNumber() +"丢包率：" + entry.getValue().lossRate + "丢包个数：" + entry.getValue().lossNum + "累计丢包率：" + entry.getValue().getAccumulateLossRate() + ",累计丢包个数：" + entry.getValue().accumulateLossNum);
-		if(entry.getValue().getLossRate() != 1&& entry.getValue().getLossRate() > LOSS_RATE_THRESHOLD) {
+		if(packetOfFlows.get(switchPort)==null) return true;
+		if(packetOfFlows.get(switchPort).getLossRate() != 1&& packetOfFlows.get(switchPort).getLossRate() > LOSS_RATE_THRESHOLD) {
+			int t=hostsCredit.get(switchPort)-3>0?hostsCredit.get(switchPort)-3:0;
+			hostsCredit.put(switchPort, t);
 			return false;
 		}
-		else if(entry.getValue().getLossNum() > LOSS_NUM_THRESHOLD) {
+		if(packetOfFlows.get(switchPort).getLossNum() > LOSS_NUM_THRESHOLD) {
+			int t=hostsCredit.get(switchPort)-3>0?hostsCredit.get(switchPort)-3:0;
+			hostsCredit.put(switchPort, t);
 			return false;
 		}
+		int t=hostsCredit.get(switchPort)+1<47?hostsCredit.get(switchPort)+1:47;
+		hostsCredit.put(switchPort, t);
 		return true;
 	}
 	
@@ -950,9 +967,9 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		if(type == PLAN_LOSSRATE){
 			
 //			StringBuffer test = new StringBuffer();
-			for(Entry<SwitchPort, PacketOfFlow> entry : packetOfFlows.entrySet()){
-				if(isNormal(entry)) {
-					rightPorts.add(entry.getKey());
+			for(SwitchPort switchPort : rank.keySet()){
+				if(isNormal(switchPort)) {
+					rightPorts.add(switchPort);
 //					test.append(computeTerminatorNum(entry.getKey()) + ",");
 				}
 			}
@@ -1135,6 +1152,10 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 //						}else {
 //							specificPorts.add(swport);
 //						}
+						if(swport.getSwitchDPID().getLong()==7&&swport.getPort().getPortNumber()==3) {
+							System.out.println("!!!!!!!!!!!!!!!!!"+packetOfFlow.getPassNum()+"!!!!!!!!!!!!!!!!!!!"+psrEntry.getDurationNsec());
+							System.out.println("<<<<<<<<<<<<<<<<<"+packetOfFlow.getAccumulatePassNum()+">>>>>>>>>>>>>>>>>>>"+psrEntry.getDurationSec());
+						}
 					}
 				}
 			}
@@ -1429,6 +1450,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private class PortPacketsCollector implements Runnable {
 		@Override
 		public void run() {
+//			System.out.println("port packets collector is running-------");
 			Map<DatapathId, List<OFStatsReply>> replies = getSwitchStatistics(portsInBind.keySet(),OFStatsType.PORT);
 //			if (replies == null)  return;
 			for (Entry<DatapathId, List<OFStatsReply>> e : replies.entrySet()) {
@@ -1492,8 +1514,13 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 								}
 							}
 						}
+						
+						if(e.getKey().getLong()==7&&pse.getPortNo().getPortNumber()==3) {
+							log.info("(((((((((((((((((((("+pse.getRxPackets()+"))))))))))))))))"+pse.getDurationSec());
+						}
 					}
 				}
+				
 				if(cycleTime==0&&maxInPacketNum.getValue()!=0) {
 					long d=maxInPacketNum.getValue()/priorityLevel>1?maxInPacketNum.getValue()/priorityLevel:1;
 					for(SwitchPort sp : portsList) {
@@ -1503,7 +1530,9 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 					}
 				}
 				portsList.clear();
+				
 			}
+			
 			if(timeToSave) {
 				timeToSave=false;
 			}
@@ -1513,6 +1542,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 				doFlowMod(new HashSet<>(abnormalPorts));
 			}
 			cycleTime--;
+			
 		}
 	}
 	
@@ -1561,7 +1591,10 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		//很奇怪，在startup里面每秒获取一次，端口总是完整的，怎么到这里遍历就会经常漏掉呢？
 		//感觉和一个方法里面循环没有多大区别，但是这样就百分百获取成功了。
 		temp.put("normal", getPorts(normalPorts));
-		temp.put("observe", getPorts(observePorts.keySet()));
+		temp.put("polling", getPorts(pickFromNormal));
+		Set<SwitchPort> set=new HashSet<>(observePorts.keySet());
+		set.removeAll(pickFromNormal);
+		temp.put("observe", getPorts(set));
 		temp.put("abnormal", getPorts(abnormalPorts));
 		
 		return temp;
@@ -1653,17 +1686,17 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	//判断验证规则是否要转换
 	private void helpConvert(DatapathId dpid) {
 		
-		if(convertFlag.get(dpid)&&abnormalPortsNum.get(dpid)>portsInBind.get(dpid)/2) {
-			if((System.currentTimeMillis()-stableTime)/1000<30) {
+		if(/*convertFlag.get(dpid)&&*/abnormalPortsNum.get(dpid)>portsInBind.get(dpid)/2) {
+			if((System.currentTimeMillis()-stableTime)/1000<20) {
 				//初始化网络时，网络状态很不稳定，定义一个初始化时间跳过这个阶段
 				return ;
 			}
 			convertTable(dpid, true);
-			convertFlag.put(dpid, false);
+//			convertFlag.put(dpid, false);
 			
-		}else if(!convertFlag.get(dpid)&&abnormalPortsNum.get(dpid)<=portsInBind.get(dpid)/2) {
+		}else if(/*!convertFlag.get(dpid)&&*/abnormalPortsNum.get(dpid)<=portsInBind.get(dpid)/2) {
 			convertTable(dpid, false);
-			convertFlag.put(dpid, true);
+//			convertFlag.put(dpid, true);
 		}
 		
 	}
@@ -1699,4 +1732,15 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	public void setPriorityLevel(int priorityLevel) {
 		this.priorityLevel=priorityLevel;
 	}
+	
+	@Override
+	public Object getHostsCredit() {
+		Map<Integer, Integer> map=new HashMap<>();
+		for(Entry<SwitchPort, Integer> entry : hostsCredit.entrySet()) {
+			int t=saviProvider.getHostWithPort().get(entry.getKey());
+			map.put(t, entry.getValue()/8+1);
+		}
+		return map;
+	}
+	
 }

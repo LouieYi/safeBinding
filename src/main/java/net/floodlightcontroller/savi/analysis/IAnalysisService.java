@@ -33,4 +33,7 @@ public interface IAnalysisService extends IFloodlightService {
 	public void updateMaxTraffic();
 
 	public void setPriorityLevel(int priorityLevel);
+
+	public Object getHostsCredit();
+
 }

@@ -172,6 +172,7 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 	private /*public static*/ Queue<SwitchPort> normalPorts = new ConcurrentLinkedQueue<>();
 	private /*public static*/ Queue<SwitchPort> abnormalPorts = new ConcurrentLinkedQueue<>();
 	private /*public static*/ Map<SwitchPort, Integer> observePorts = new ConcurrentHashMap<>();
+	
 	/**
 	 * Static cookie 
 	 */
@@ -382,7 +383,7 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		Match.Builder mb=OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 		if(isTrue) {
 			if(staticSwId.contains(dpid)) {
-				log.warn("交换机{"+dpid+"}里的验证流表已经是静态流表，无需转换");
+//				log.warn("交换机{"+dpid+"}里的验证流表已经是静态流表，无需转换");
 				return ;
 			}
 			staticSwId.add(dpid);
@@ -390,7 +391,7 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 			log.warn("交换机{"+dpid+"}转为静态流表");
 		}else {
 			if(!staticSwId.contains(dpid)) {
-				log.warn("交换机{"+dpid+"}里的验证流表就是动态流表，无需转换");
+//				log.warn("交换机{"+dpid+"}里的验证流表就是动态流表，无需转换");
 				return ;
 			}
 			List<OFInstruction> instructions=new ArrayList<>();
@@ -634,15 +635,16 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		List<OFInstruction> instructions = new ArrayList<>();
 		instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(FLOW_TABLE_ID));
 		doFlowAdd(switchId, STATIC_TABLE_ID, mb.build(), null, instructions, 0);
-		
 		//转发表通配规则
 		List<OFAction> actions = new ArrayList<>();
 		actions.add(OFFactories.getFactory(OFVersion.OF_13).actions().output(OFPort.CONTROLLER, Integer.MAX_VALUE));
 		doFlowAdd(switchId, FLOW_TABLE_ID, mb.build(), actions, null, 0);
 	
+		
 	}
 	
 	private void addSpecialFlowEntry(DatapathId switchId) {	
+		
 		
 		Match.Builder mb=OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 		List<OFInstruction> instructions = new ArrayList<>();
@@ -651,13 +653,21 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		//这里三个顺序不能错
 		//table-miss，动态流表
 		doFlowAdd(switchId, DYNAMIC_TABLE_ID, mb.build(), null, instructions, 0, 0, 0);
+//		set.add(new ValidationRuleFlowEntry(DYNAMIC_TABLE_ID.getValue(), 0, 0, null, "to table 2"));
 		
 		//静态流表转动态流表
 		AddTimingFlowEntry(hardTimeout, switchId);
+//		set.add(new ValidationRuleFlowEntry(STATIC_TABLE_ID.getValue(), hardTimeout, STATIC_FITST_PRIORITY, null, "to table 1"));
 		
 		//修改table-miss 静态流表 drop
 		doFlowMod(switchId, STATIC_TABLE_ID, mb.build(), null, null, 0,0,0);
-		
+		/*
+		for(ValidationRuleFlowEntry validationRuleFlowEntry : set) {
+			if(validationRuleFlowEntry.getTableId()==STATIC_TABLE_ID.getValue()&&validationRuleFlowEntry.getPriority()==0) {
+				validationRuleFlowEntry.setAction("drop");
+			}
+		}
+		*/
 		for(Match match:serviceRules){
 			
 			List<OFAction> actions = new ArrayList<>();
@@ -679,6 +689,16 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 			} else {
 				//DHCP协议和SLAAC协议通信时 设置的匹配规则(静态流表规则)
 				doFlowAdd(switchId, STATIC_TABLE_ID, match, actions, null, SERVICE_LAYER_PRIORITY);
+				/*
+				Map<String, String> matchMap	=new HashMap<>();
+				Iterator<MatchField<?>> iter=match.getMatchFields().iterator();
+				while(iter.hasNext()) {
+					MatchField<?> mf=iter.next();
+					System.out.println("-----------------------"+mf.getName());
+					matchMap.put(mf.getName(), match.get(mf).toString());
+				}
+				set.add(new ValidationRuleFlowEntry(STATIC_TABLE_ID.getValue(), 0, SERVICE_LAYER_PRIORITY,matchMap, "CONTROLLER:65535"));
+				*/
 			}
 			
 		}
@@ -976,25 +996,9 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		List<OFInstruction> instructions = new ArrayList<>();
 		instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(FLOW_TABLE_ID));
 		doFlowAdd(binding.getSwitchPort().getSwitchDPID(), STATIC_TABLE_ID, mb.build(), null, instructions, BINDING_LAYER_PRIORITY);
-		
 		rank.put(binding.getSwitchPort(), BINDING_LAYER_PRIORITY);
 		hostWithPort.put(binding.getSwitchPort(), (int)(binding.getMacAddress().getLong()));
 		normalPorts.offer(binding.getSwitchPort());
-		
-		//下发动态流表
-		Match.Builder mb1 = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
-		mb1.setExact(MatchField.ETH_SRC, binding.getMacAddress());
-		mb1.setExact(MatchField.ETH_TYPE, EthType.IPv6);
-		mb1.setExact(MatchField.IPV6_SRC, (IPv6Address)binding.getAddress());
-		mb1.setExact(MatchField.IN_PORT, binding.getSwitchPort().getPort());
-		Match.Builder mb2 = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
-		mb2.setExact(MatchField.IN_PORT, binding.getSwitchPort().getPort());
-		
-		List<OFInstruction> instructions1 = new ArrayList<>();
-		instructions1.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(FLOW_TABLE_ID));
-		doFlowAdd(binding.getSwitchPort().getSwitchDPID(), DYNAMIC_TABLE_ID, mb1.build(), null, instructions1, BINDING_LAYER_PRIORITY);
-		doFlowAdd(binding.getSwitchPort().getSwitchDPID(), DYNAMIC_TABLE_ID, mb2.build(), null, null, BINDING_LAYER_PRIORITY-1);
-		
 	}
 	
 	/**
@@ -1034,7 +1038,7 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		mb.setExact(MatchField.ETH_TYPE, EthType.IPv6);
 		mb.setExact(MatchField.IN_PORT, binding.getSwitchPort().getPort());
 		doFlowRemove(binding.getSwitchPort().getSwitchDPID(), STATIC_TABLE_ID, mb.build());
-		
+
 		System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$解绑发生了");
 		
 		rank.remove(binding.getSwitchPort());
@@ -1125,7 +1129,6 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		if(sw!= null){
 			sw.write(fab.build());
 		}
-		
 	}
 	
 	//strict
@@ -1190,7 +1193,6 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		   .setBufferId(OFBufferId.NO_BUFFER)
 		   .setMatch(match);
 		
-		
 		if(actions != null){
 			fab.setActions(actions);
 		}
@@ -1204,7 +1206,6 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		if(sw!= null){
 			sw.write(fab.build());
 		}
-		
 	}
 	
 	/**
@@ -1345,6 +1346,5 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 	public Map<SwitchPort, Integer> getObservePorts() {
 		return observePorts;
 	}
-	
 }
 
