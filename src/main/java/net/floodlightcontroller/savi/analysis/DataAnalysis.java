@@ -200,7 +200,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private long stableTime	;
 	//主机信用等级
 	private Map<SwitchPort, Integer> hostsCredit		=new HashMap<>();
-	private boolean synAutoCheck		=true;
+//	private boolean synAutoCheck		=true;
 	//log flag
 	private Map<SwitchPort, Boolean> logFlag=		new HashMap<>();
 	
@@ -1508,7 +1508,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 							U64 inPacketsCounted = pse.getRxPackets();
 							U64 inPacketsNum=inPacketsCounted.subtract(prePacketsNum);
 							inPortPackets.put(sp,inPacketsCounted);
-							inPortPacketsRes.put(sp, inPacketsNum);
+							inPortPacketsRes.put(sp, U64.of((long)(inPacketsNum.getValue()/0.7)));
 							
 						} else { /* initialize */
 							inTentativePortPackets.put(sp, pse.getRxPackets());
@@ -1526,7 +1526,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 							U64 outPacketsCounted = pse.getTxPackets();
 							U64 outPacketsNum=outPacketsCounted.subtract(prePacketsNum);
 							outPortPackets.put(sp,outPacketsCounted);
-							outPortPacketsRes.put(sp, outPacketsNum);
+							outPortPacketsRes.put(sp, U64.of((long)(outPacketsNum.getValue()/0.7)));
 	
 						} else { /* initialize */
 							outTentativePortPackets.put(sp, pse.getTxPackets());
@@ -1546,7 +1546,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 						}
 						
 //						if(e.getKey().getLong()==7&&pse.getPortNo().getPortNumber()==3) {
-//							log.info("(((((((((((((((((((("+pse.getRxPackets()+"))))))))))))))))"+pse.getDurationSec());
+//							log.info(pse.getDurationNsec()+"(((((((((((((((((((("+pse.getRxPackets()+"))))))))))))))))"+pse.getDurationSec());
 //						}
 					}
 				}
@@ -1578,6 +1578,9 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	
 	@Override
 	public U64 getInPacketsNum(DatapathId dpid, OFPort p) {
+		for(Entry<SwitchPort,U64> entry : inPortPacketsRes.entrySet()) {
+			System.out.println(entry.getKey()+"================"+entry.getValue());
+		}
 		return inPortPacketsRes.getOrDefault(new SwitchPort(dpid, p), U64.ZERO);
 	}
 
