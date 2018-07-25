@@ -1,7 +1,6 @@
 package net.floodlightcontroller.savi.analysis.web;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -10,8 +9,6 @@ import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.restlet.resource.Get;
 import org.restlet.resource.ServerResource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.internal.IOFSwitchService;
@@ -19,7 +16,7 @@ import net.floodlightcontroller.savi.analysis.IAnalysisService;
 
 public class PacketsResource extends ServerResource {
 	
-	private static final Logger log = LoggerFactory.getLogger(PacketsResource.class);
+//	private static final Logger log = LoggerFactory.getLogger(PacketsResource.class);
 	
 	//这里获取所有交换机端口的数据包数，进行返回
 	@Get("json")

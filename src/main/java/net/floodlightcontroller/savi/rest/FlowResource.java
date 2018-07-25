@@ -21,6 +21,7 @@ import org.restlet.resource.ServerResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.savi.flow.FlowAction;
 import net.floodlightcontroller.savi.flow.FlowAction.FlowActionFactory;
 import net.floodlightcontroller.savi.service.SAVIProviderService;
@@ -75,21 +76,22 @@ public class FlowResource extends ServerResource {
 	//定义验证规则和通配规则的优先级，后者为4
 	public static final int BIND_PRIORITY = 5;
 	//定义流表级数id
-	public static final int BIND_TABLE_ID = 0;
-	public static final int OTHER_TABLE_ID = 1;
+	public static final int BIND_TABLE_ID = 1;
+	public static final int OTHER_TABLE_ID = 2;
 	
 	public static final String ACTION="action";
 	public static final String OUTPUT="output";
 	public static final String INSTRUCTION="instruction";
 	public static final String RESUBMIT="resubmit";
 	
+	//获取相关Service以帮助下发流表
+	SAVIProviderService saviProvider=
+			(SAVIProviderService)getContext().getAttributes()
+			.get(SAVIProviderService.class.getCanonicalName());
+	
 	//重点在于提交的数据，对底层网络的修改，所以不重视返回值的类型
 	@Post
 	public String post(String json){
-		//获取相关Service以帮助下发流表
-		SAVIProviderService saviProvider=
-				(SAVIProviderService)getContext().getAttributes()
-				.get(SAVIProviderService.class.getCanonicalName());
 		List<FlowAction> actions=new ArrayList<>();
 		
 		Map<String, String> jsonMap=SaviUtils.jsonToStringMap(json);
@@ -126,12 +128,12 @@ public class FlowResource extends ServerResource {
 		if(swid==null||swid.isEmpty()) return;
 		DatapathId dpId=DatapathId.of(1);
 		//dpid是必须的字段，可以初始化为null，但tableid可能在循环中没有，必须有初始值
-		TableId tid=TableId.of(0);
+		OFPort port=OFPort.of(1);
+		TableId tid=TableId.of(1);
 		int priority=0;
 		Match.Builder mb=OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 		List<OFInstruction> instructions=null;
 		List<OFAction> ofActions=null;
-		
 		//为避免parseInt等转换出现运行时异常，对其进行捕捉
 		try{
 			for(String key:map.keySet()){
@@ -144,6 +146,7 @@ public class FlowResource extends ServerResource {
 				}
 				else if(key.equals(INPORT)){
 					mb.setExact(MatchField.IN_PORT, OFPort.of(Integer.parseInt(map.get(key))));
+					port=OFPort.of(Integer.parseInt(map.get(key)));
 				}
 				else if(key.equals(IPV6_SRC)){
 					mb.setExact(MatchField.IPV6_SRC, IPv6Address.of(map.get(key)));
@@ -175,6 +178,10 @@ public class FlowResource extends ServerResource {
 					instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(TableId.of(Integer.parseInt(splits[1]))));
 				}
 				
+				if(dpId.getLong()!=1&&port.getPortNumber()!=1) {
+					saviProvider.getPushFlowToSwitchPorts().put(new SwitchPort(dpId, port), 0);
+				}
+				
 			}
 		}catch(Exception e){
 			e.printStackTrace();
@@ -196,7 +203,8 @@ public class FlowResource extends ServerResource {
 		
 		DatapathId dpId=DatapathId.of(1);
 		//dpid是必须的字段，可以初始化为null，但tableid可能在循环中没有，必须有初始值
-		TableId tid = TableId.of(BIND_TABLE_ID);
+		OFPort port=OFPort.of(1);
+		TableId tid = TableId.of(1);
 		int priority = BIND_PRIORITY;
 		Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 		Match.Builder mb2 = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
@@ -211,6 +219,7 @@ public class FlowResource extends ServerResource {
 				else if(key.equals(INPORT)){
 					mb.setExact(MatchField.IN_PORT, OFPort.of(Integer.parseInt(map.get(key))));
 					mb2.setExact(MatchField.IN_PORT, OFPort.of(Integer.parseInt(map.get(key))));
+					port=OFPort.of(Integer.parseInt(map.get(key)));
 				}
 				else if(key.equals(IPV6_SRC)){
 					mb.setExact(MatchField.IPV6_SRC, IPv6Address.of(map.get(key)));
@@ -224,7 +233,7 @@ public class FlowResource extends ServerResource {
 		}
 		mb.setExact(MatchField.ETH_TYPE, EthType.IPv6);
 		instructions=new ArrayList<>();
-		instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(TableId.of(OTHER_TABLE_ID)));
+		instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(TableId.of(2)));
 		//这一条构造验证规则
 		FlowAction action = FlowActionFactory.getFlowAddAction(
 				dpId, tid, mb.build(), null, instructions, priority);
@@ -234,6 +243,10 @@ public class FlowResource extends ServerResource {
 		
 		actions.add(action);
 		actions.add(anyAction);
+		
+		if(dpId.getLong()!=1&&port.getPortNumber()!=1) {
+			saviProvider.getPushFlowToSwitchPorts().put(new SwitchPort(dpId, port), 0);
+		}
 	}
 	
 	public void doFlowMod2(Map<String, String> map,List<FlowAction> actions){
@@ -246,7 +259,7 @@ public class FlowResource extends ServerResource {
 		
 		DatapathId dpId=DatapathId.of(1);
 		//dpid是必须的字段，可以初始化为null，但tableid可能在循环中没有，必须有初始值
-		TableId tid = TableId.of(BIND_TABLE_ID);
+		TableId tid = TableId.of(1);
 		int priority = BIND_PRIORITY;
 		Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 		Match.Builder mb2 = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
@@ -282,7 +295,7 @@ public class FlowResource extends ServerResource {
 		}
 		mb.setExact(MatchField.ETH_TYPE, EthType.IPv6);
 		instructions=new ArrayList<>();
-		instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(TableId.of(OTHER_TABLE_ID)));
+		instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(TableId.of(2)));
 		//这一条构造验证规则
 		FlowAction action = FlowActionFactory.getFlowModAction(
 				dpId, tid, mb.build(), null, instructions, priority, hardTimeout, idleTimeout);
@@ -302,7 +315,7 @@ public class FlowResource extends ServerResource {
 		if(swid==null||swid.isEmpty()) return;
 		DatapathId dpId=DatapathId.of(1);
 		//dpid是必须的字段，可以初始化为null，但tableid可能在循环中没有，必须有初始值
-		TableId tid=TableId.of(0);
+		TableId tid=TableId.of(1);
 		int priority=0;
 		Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 		List<OFInstruction> instructions=null;
@@ -375,7 +388,7 @@ public class FlowResource extends ServerResource {
 		String swid=map.get(SWITCHID);
 		if(swid==null||swid.isEmpty()) return;
 		DatapathId datapathId=DatapathId.of(1);
-		TableId tid=TableId.of(0);
+		TableId tid=TableId.of(1);
 		Match.Builder mb=OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 
 		//为避免parseInt等转换出现运行时异常，对其进行捕捉

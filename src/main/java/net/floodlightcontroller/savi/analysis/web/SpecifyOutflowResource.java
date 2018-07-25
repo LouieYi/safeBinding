@@ -9,7 +9,6 @@ import org.restlet.resource.ServerResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.floodlightcontroller.savi.analysis.DataAnalysis;
 import net.floodlightcontroller.savi.analysis.IAnalysisService;
 
 public class SpecifyOutflowResource extends ServerResource {

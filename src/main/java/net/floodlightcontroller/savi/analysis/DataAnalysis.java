@@ -1,8 +1,10 @@
 package net.floodlightcontroller.savi.analysis;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.lang.Thread.State;
@@ -112,6 +114,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private static String filePath = "E:/maxtraffic.txt";
 	//累计历史流量
 	private static String filePath2 = "E:/savilog/";
+	private static String filePath5 ="E:/savilog/abnormalLog.txt";
 //	private static String filePath3 = "E:/savilog/rulenum.txt";
 //	private static String filePath4 = "E:/savilog/singlenum.txt";
 	
@@ -197,6 +200,9 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private long stableTime	;
 	//主机信用等级
 	private Map<SwitchPort, Integer> hostsCredit		=new HashMap<>();
+	private boolean synAutoCheck		=true;
+	//log flag
+	private Map<SwitchPort, Boolean> logFlag=		new HashMap<>();
 	
 //	private Map<DatapathId, Integer> timeToMatch	=new HashMap<>();
 	
@@ -361,6 +367,11 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 				checkRules.reschedule(20, TimeUnit.SECONDS);
 			}
 		});
+//		try {
+//			checkRules.wait();
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
 		checkRules.reschedule(60, TimeUnit.SECONDS);
 	}
 
@@ -593,6 +604,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 				
 				for(SwitchPort switchPort : rank.keySet()) {
 					hostsCredit.put(switchPort, 24);
+					logFlag.put(switchPort, true);
 				}
 				
 //				super.run();
@@ -810,9 +822,11 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		public void run() {
 //			System.out.println("normal =================");
 			
+			for(SwitchPort sp : saviProvider.getPushFlowToSwitchPorts().keySet()) 
+				if(normalPorts.contains(sp)) normalPorts.remove(sp);
+			
 			SwitchPort cur = null;
 			Set<SwitchPort> handleSet = new HashSet<>();
-			pickFromNormal.clear();
 //			getChangeNormalPorts(STATUS);
 			Iterator<SwitchPort> iterator = normalPorts.iterator();
 			while(iterator.hasNext()){
@@ -918,6 +932,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 					if(entry.getValue() >= 6-hostsCredit.get(entry.getKey())/8) {
 						//注意，先放到正常队列，再从map移出，这里其实是一个对象被引用到了不同容器，不知道会不会出问题
 						normalPorts.offer(entry.getKey());
+						pickFromNormal.remove(entry.getKey());
 						actionPorts.add(entry.getKey());
 						iterator.remove();
 					}
@@ -931,7 +946,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 					abnormalPorts.offer(entry.getKey());
 					
 					countAbnormalPort(entry.getKey().getSwitchDPID(), true);
-					
+					pickFromNormal.remove(entry.getKey());
 					iterator.remove();
 				}
 			}
@@ -945,18 +960,33 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		// || entry.getValue().getLossRate() == 1
 	//	System.out.println("交换机：" + entry.getKey().getSwitchDPID().getLong() + "端口：" + entry.getKey().getPort().getPortNumber() +"丢包率：" + entry.getValue().lossRate + "丢包个数：" + entry.getValue().lossNum + "累计丢包率：" + entry.getValue().getAccumulateLossRate() + ",累计丢包个数：" + entry.getValue().accumulateLossNum);
 		if(packetOfFlows.get(switchPort)==null) return true;
-		if(packetOfFlows.get(switchPort).getLossRate() != 1&& packetOfFlows.get(switchPort).getLossRate() > LOSS_RATE_THRESHOLD) {
-			int t=hostsCredit.get(switchPort)-3>0?hostsCredit.get(switchPort)-3:0;
+		if(packetOfFlows.get(switchPort).getLossRate()!=1&&packetOfFlows.get(switchPort).getLossRate() > LOSS_RATE_THRESHOLD) {
+			int t=hostsCredit.get(switchPort)-2>0?hostsCredit.get(switchPort)-2:0;
 			hostsCredit.put(switchPort, t);
+			//log
+			if(logFlag.get(switchPort)) {
+				writeErrorLog(switchPort, true);
+				logFlag.put(switchPort, false);
+			}
 			return false;
 		}
 		if(packetOfFlows.get(switchPort).getLossNum() > LOSS_NUM_THRESHOLD) {
-			int t=hostsCredit.get(switchPort)-3>0?hostsCredit.get(switchPort)-3:0;
+			int t=hostsCredit.get(switchPort)-2>0?hostsCredit.get(switchPort)-2:0;
 			hostsCredit.put(switchPort, t);
+			//log
+			if(logFlag.get(switchPort)) {
+				writeErrorLog(switchPort, true);
+				logFlag.put(switchPort, false);
+			}
 			return false;
 		}
 		int t=hostsCredit.get(switchPort)+1<47?hostsCredit.get(switchPort)+1:47;
 		hostsCredit.put(switchPort, t);
+		//log
+		if(!logFlag.get(switchPort)) {
+			writeErrorLog(switchPort, false);
+			logFlag.put(switchPort, true);
+		}
 		return true;
 	}
 	
@@ -1099,8 +1129,8 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		@Override
 		public void run(){
 			//首先获取交换机的响应信息
-			long t=System.currentTimeMillis();
-			System.out.println("DataAnalysis.FlowStatisCollector.run()----start"+t);
+//			long t=System.currentTimeMillis();
+//			System.out.println("DataAnalysis.FlowStatisCollector.run()----start"+t);
 			
 			Map<DatapathId, List<OFStatsReply>> map = getSwitchStatistics(portsInBind.keySet(), OFStatsType.FLOW);
 			
@@ -1152,10 +1182,10 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 //						}else {
 //							specificPorts.add(swport);
 //						}
-						if(swport.getSwitchDPID().getLong()==7&&swport.getPort().getPortNumber()==3) {
-							System.out.println("!!!!!!!!!!!!!!!!!"+packetOfFlow.getPassNum()+"!!!!!!!!!!!!!!!!!!!"+psrEntry.getDurationNsec());
-							System.out.println("<<<<<<<<<<<<<<<<<"+packetOfFlow.getAccumulatePassNum()+">>>>>>>>>>>>>>>>>>>"+psrEntry.getDurationSec());
-						}
+//						if(swport.getSwitchDPID().getLong()==7&&swport.getPort().getPortNumber()==3) {
+//							System.out.println("!!!!!!!!!!!!!!!!!"+packetOfFlow.getPassNum()+"!!!!!!!!!!!!!!!!!!!"+psrEntry.getDurationNsec());
+//							System.out.println("<<<<<<<<<<<<<<<<<"+packetOfFlow.getAccumulatePassNum()+">>>>>>>>>>>>>>>>>>>"+psrEntry.getDurationSec());
+//						}
 					}
 				}
 			}
@@ -1164,7 +1194,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 //				classify(switchPort);
 //			}
 			getChangeNormalPorts(STATUS);
-			System.out.println("DataAnalysis.FlowStatisCollector.run()----end"+(System.currentTimeMillis()-t));
+//			System.out.println("DataAnalysis.FlowStatisCollector.run()----end"+(System.currentTimeMillis()-t));
 		}
 	}
 	/*
@@ -1515,9 +1545,9 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 							}
 						}
 						
-						if(e.getKey().getLong()==7&&pse.getPortNo().getPortNumber()==3) {
-							log.info("(((((((((((((((((((("+pse.getRxPackets()+"))))))))))))))))"+pse.getDurationSec());
-						}
+//						if(e.getKey().getLong()==7&&pse.getPortNo().getPortNumber()==3) {
+//							log.info("(((((((((((((((((((("+pse.getRxPackets()+"))))))))))))))))"+pse.getDurationSec());
+//						}
 					}
 				}
 				
@@ -1741,6 +1771,68 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			map.put(t, entry.getValue()/8+1);
 		}
 		return map;
+	}
+	
+	@Override
+	public void setAutoCheck(boolean setAuto) {
+		/*
+		if (setAuto&&synAutoCheck) {
+			checkRules.notify();
+			synAutoCheck=false;
+		} else if(!setAuto&&!synAutoCheck) {
+			try {
+				checkRules.wait();
+				synAutoCheck=true;
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		*/
+	}
+	
+	public void writeErrorLog(SwitchPort sp, boolean isAbnormal) {
+		String text="";
+		if (isAbnormal) {
+			long lossNum=packetOfFlows.get(sp).getLossNum();
+			if(pickFromNormal.contains(sp)) 
+				lossNum=(long) (lossNum/0.28);
+			text="端口："+"SwitchPort [switchDPID=" + sp.getSwitchDPID().toString() +
+		               ", port=" + sp.getPort()+"  主机："+saviProvider.getHostWithPort().get(sp) + "发现异常---" + "攻击开始时间: "+sdflog.format(System.currentTimeMillis())
+		               +"---发包："+(packetOfFlows.get(sp).getPassNum()+packetOfFlows.get(sp).getLossNum())+"  丢包率："+packetOfFlows.get(sp).getlossRate()
+		               +"  丢包数："+packetOfFlows.get(sp).getLossNum();
+		} else {
+			text="端口："+"SwitchPort [switchDPID=" + sp.getSwitchDPID().toString() +
+		               ", port=" + sp.getPort()+"  主机："+saviProvider.getHostWithPort().get(sp) + "恢复正常---" + "攻击结束时间: "+sdflog.format(System.currentTimeMillis())
+		               +"---发包："+(packetOfFlows.get(sp).getPassNum()+packetOfFlows.get(sp).getLossNum())+"  丢包率："+packetOfFlows.get(sp).getlossRate()
+		               +"  丢包数："+packetOfFlows.get(sp).getLossNum();
+		}
+		try {
+			synchronized (filePath5) {
+				File file =new File(filePath5);
+				if(!file.exists()) {
+					file.createNewFile();
+					
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		BufferedWriter bw=null;
+		try {
+			bw = new BufferedWriter(new FileWriter(filePath5,true));
+			bw.append(text);
+			bw.newLine();
+			bw.flush();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}finally {
+			try {
+				bw.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
 	}
 	
 }

@@ -13,6 +13,7 @@ public class AnalysisWebRoutable implements RestletRoutable {
 	protected static final String PORT_STR = "port";
 	protected static final String STAGE_INIT = "init";
 	protected static final String PLAN_TYPE = "plan";
+	protected static final String ISAUTO = "isAuto";
 	
 	@Override
 	public Router getRestlet(Context context) {
@@ -33,7 +34,8 @@ public class AnalysisWebRoutable implements RestletRoutable {
 		router.attach("/traffic/get/in", InTrafficResource.class);
 		router.attach("/traffic/update/in", InTrafficResource.class);
 		
-		router.attach("/hosts/credit/json", HostsCreditResource.class);
+		router.attach("/hosts/credit/json", HostsCreditResource.class);	//get hosts credit
+		router.attach("/setting/auto/{"+ ISAUTO +"}", AutoCheckResource.class);	//set auto check
 		
 		return router;                                                            
 	}

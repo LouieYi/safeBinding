@@ -36,4 +36,6 @@ public interface IAnalysisService extends IFloodlightService {
 
 	public Object getHostsCredit();
 
+	public void setAutoCheck(boolean setAuto);
+
 }

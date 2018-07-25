@@ -172,6 +172,8 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 	private /*public static*/ Queue<SwitchPort> normalPorts = new ConcurrentLinkedQueue<>();
 	private /*public static*/ Queue<SwitchPort> abnormalPorts = new ConcurrentLinkedQueue<>();
 	private /*public static*/ Map<SwitchPort, Integer> observePorts = new ConcurrentHashMap<>();
+	//手动下发流表暂留五秒
+	private Map<SwitchPort, Integer> pushFlowToSwitchPorts=new HashMap<>(); 
 	
 	/**
 	 * Static cookie 
@@ -1346,5 +1348,11 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 	public Map<SwitchPort, Integer> getObservePorts() {
 		return observePorts;
 	}
+	
+	@Override
+	public Map<SwitchPort,Integer> getPushFlowToSwitchPorts() {
+		return pushFlowToSwitchPorts;
+	}
+	
 }
 
