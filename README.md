@@ -1,4 +1,4 @@
 Floodlight OpenFlow Controller for SAVI
 =======================================
 
-NETARCH Lab of THU
+DYNAMIC SAVI FROM HUST BASED ON THU'S SAVI PROJECT
