@@ -653,7 +653,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			Match.Builder mb=OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 			mb.setExact(MatchField.IN_PORT, switchPort.getPort());
 			removeActions.add(FlowActionFactory.getFlowRemoveAction(switchPort.getSwitchDPID(), DYNAMIC_TABLE_ID, mb.build()));
-			packetOfFlows.remove(switchPort);
+			packetOfFlows.get(switchPort).init();
 		}
 		saviProvider.pushFlowActions(removeActions);
 		
@@ -822,12 +822,10 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		public void run() {
 //			System.out.println("normal =================");
 			
-			for(SwitchPort sp : saviProvider.getPushFlowToSwitchPorts().keySet()) 
-				if(normalPorts.contains(sp)) normalPorts.remove(sp);
-			
 			SwitchPort cur = null;
 			Set<SwitchPort> handleSet = new HashSet<>();
 //			getChangeNormalPorts(STATUS);
+			/*
 			Iterator<SwitchPort> iterator = normalPorts.iterator();
 			while(iterator.hasNext()){
 				cur = iterator.next();
@@ -843,6 +841,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 					
 				}
 			}
+			*/
 
 			int level = getLevelByQueueSize();
 			if(level == 0) {
@@ -853,6 +852,10 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			}
 			for(int i = 0 ; i < normalNum ; i++){
 				cur = normalPorts.poll();
+				if(saviProvider.getPushFlowToSwitchPorts().contains(cur)) {
+					i--;
+					continue;
+				}
 				//当获取元素为空，退出循环统一处理
 				if(cur == null) break;
 				handleSet.add(cur);
@@ -932,8 +935,13 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 					if(entry.getValue() >= 6-hostsCredit.get(entry.getKey())/8) {
 						//注意，先放到正常队列，再从map移出，这里其实是一个对象被引用到了不同容器，不知道会不会出问题
 						normalPorts.offer(entry.getKey());
-						pickFromNormal.remove(entry.getKey());
-						actionPorts.add(entry.getKey());
+						
+						if(pickFromNormal.contains(entry.getKey()))
+							pickFromNormal.remove(entry.getKey());
+						
+						if(!saviProvider.getPushFlowToSwitchPorts().contains(entry.getKey()))
+							actionPorts.add(entry.getKey());
+						
 						iterator.remove();
 					}
 					else {
@@ -946,7 +954,8 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 					abnormalPorts.offer(entry.getKey());
 					
 					countAbnormalPort(entry.getKey().getSwitchDPID(), true);
-					pickFromNormal.remove(entry.getKey());
+					if(pickFromNormal.contains(entry.getKey()))
+						pickFromNormal.remove(entry.getKey());
 					iterator.remove();
 				}
 			}
@@ -960,7 +969,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		// || entry.getValue().getLossRate() == 1
 	//	System.out.println("交换机：" + entry.getKey().getSwitchDPID().getLong() + "端口：" + entry.getKey().getPort().getPortNumber() +"丢包率：" + entry.getValue().lossRate + "丢包个数：" + entry.getValue().lossNum + "累计丢包率：" + entry.getValue().getAccumulateLossRate() + ",累计丢包个数：" + entry.getValue().accumulateLossNum);
 		if(packetOfFlows.get(switchPort)==null) return true;
-		if(packetOfFlows.get(switchPort).getLossRate()!=1&&packetOfFlows.get(switchPort).getLossRate() > LOSS_RATE_THRESHOLD) {
+		if(packetOfFlows.get(switchPort).getDropRate()!=1&&packetOfFlows.get(switchPort).getDropRate() > LOSS_RATE_THRESHOLD) {
 			int t=hostsCredit.get(switchPort)-2>0?hostsCredit.get(switchPort)-2:0;
 			hostsCredit.put(switchPort, t);
 			//log
@@ -970,7 +979,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			}
 			return false;
 		}
-		if(packetOfFlows.get(switchPort).getLossNum() > LOSS_NUM_THRESHOLD) {
+		if(packetOfFlows.get(switchPort).getDropNum() > LOSS_NUM_THRESHOLD) {
 			int t=hostsCredit.get(switchPort)-2>0?hostsCredit.get(switchPort)-2:0;
 			hostsCredit.put(switchPort, t);
 			//log
@@ -1156,28 +1165,28 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 								packetOfFlow.setPassNum(psrEntry.getPacketCount().getValue() - packetOfFlow.getAccumulatePassNum());
 								packetOfFlow.setAccumulatePassNum(psrEntry.getPacketCount().getValue());
 								//这里有点麻烦，由于匹配成功的数据包数变了，那么丢包率也会发生变动
-								long fenmu1 = packetOfFlow.getLossNum() + packetOfFlow.getPassNum();
-								packetOfFlow.setLossRate(fenmu1 == 0 ? 0 : (packetOfFlow.getLossNum()*1.0)/fenmu1);
-								long fenmu2 = packetOfFlow.getAccumulateLossNum() + packetOfFlow.getAccumulatePassNum();
-								packetOfFlow.setAccumulateLossRate(fenmu2 == 0 ? 0 : (packetOfFlow.getAccumulateLossNum()*1.0 / fenmu2));
+								long fenmu1 = packetOfFlow.getDropNum() + packetOfFlow.getPassNum();
+								packetOfFlow.setDropRate(fenmu1 == 0 ? 0 : (packetOfFlow.getDropNum()*1.0)/fenmu1);
+								long fenmu2 = packetOfFlow.getAccumulateDropNum() + packetOfFlow.getAccumulatePassNum();
+								packetOfFlow.setAccumulateDropRate(fenmu2 == 0 ? 0 : (packetOfFlow.getAccumulateDropNum()*1.0 / fenmu2));
 							}
 						}else{
 							if(packetOfFlow == null){
 								packetOfFlow=new PacketOfFlow(0, psrEntry.getPacketCount().getValue(),0, psrEntry.getPacketCount().getValue() , 0 , 0);
 							}else{
-								packetOfFlow.setLossNum(psrEntry.getPacketCount().getValue()-packetOfFlow.getAccumulateLossNum());
-								packetOfFlow.setAccumulateLossNum(psrEntry.getPacketCount().getValue());
+								packetOfFlow.setDropNum(psrEntry.getPacketCount().getValue()-packetOfFlow.getAccumulateDropNum());
+								packetOfFlow.setAccumulateDropNum(psrEntry.getPacketCount().getValue());
 								//修改后的代码逻辑存在很大弱点，太依赖于流表规则的正确性了，一旦流表规则出了问题，比如只有验证的，没有配套的，那么这里的统计基本全有问题
-								long fenmu1 = packetOfFlow.getLossNum() + packetOfFlow.getPassNum();
-								packetOfFlow.setLossRate(fenmu1 == 0 ? 0 : (packetOfFlow.getLossNum()*1.0)/fenmu1);
-								long fenmu2 = packetOfFlow.getAccumulateLossNum() + packetOfFlow.getAccumulatePassNum();
-								packetOfFlow.setAccumulateLossRate(fenmu2 == 0 ? 0 : (packetOfFlow.getAccumulateLossNum()*1.0 / fenmu2));
+								long fenmu1 = packetOfFlow.getDropNum() + packetOfFlow.getPassNum();
+								packetOfFlow.setDropRate(fenmu1 == 0 ? 0 : (packetOfFlow.getDropNum()*1.0)/fenmu1);
+								long fenmu2 = packetOfFlow.getAccumulateDropNum() + packetOfFlow.getAccumulatePassNum();
+								packetOfFlow.setAccumulateDropRate(fenmu2 == 0 ? 0 : (packetOfFlow.getAccumulateDropNum()*1.0 / fenmu2));
 							}
 						}
 						packetOfFlows.put(swport, packetOfFlow);
-//						if(packetOfFlow.getlossRate()<LOSS_RATE_THRESHOLD) {
+//						if(packetOfFlow.getDropRate()<LOSS_RATE_THRESHOLD) {
 //							rightPorts.add(swport);
-//						}else if(packetOfFlow.getLossNum()<LOSS_NUM_THRESHOLD) {
+//						}else if(packetOfFlow.getDropNum()<LOSS_NUM_THRESHOLD) {
 //							rightPorts.add(swport);
 //						}else {
 //							specificPorts.add(swport);
@@ -1601,7 +1610,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		Collections.sort(temp, new Comparator<Map.Entry<SwitchPort, PacketOfFlow>>() {
 			@Override
 			public int compare(Entry<SwitchPort, PacketOfFlow> o1, Entry<SwitchPort, PacketOfFlow> o2) {
-				double cmp = o1.getValue().getLossRate() - o2.getValue().getLossRate();
+				double cmp = o1.getValue().getDropRate() - o2.getValue().getDropRate();
 				if(cmp < 0 ) 
 					return 1;
 				else if(cmp > 0)
@@ -1796,18 +1805,18 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	public void writeErrorLog(SwitchPort sp, boolean isAbnormal) {
 		String text="";
 		if (isAbnormal) {
-			long lossNum=packetOfFlows.get(sp).getLossNum();
+			long lossNum=packetOfFlows.get(sp).getDropNum();
 			if(pickFromNormal.contains(sp)) 
 				lossNum=(long) (lossNum/0.28);
 			text="端口："+"SwitchPort [switchDPID=" + sp.getSwitchDPID().toString() +
 		               ", port=" + sp.getPort()+"  主机："+saviProvider.getHostWithPort().get(sp) + "发现异常---" + "攻击开始时间: "+sdflog.format(System.currentTimeMillis())
-		               +"---发包："+(packetOfFlows.get(sp).getPassNum()+packetOfFlows.get(sp).getLossNum())+"  丢包率："+packetOfFlows.get(sp).getlossRate()
-		               +"  丢包数："+packetOfFlows.get(sp).getLossNum();
+		               +"---发包："+(packetOfFlows.get(sp).getPassNum()+packetOfFlows.get(sp).getDropNum())+"  丢包率："+packetOfFlows.get(sp).getDropRate()
+		               +"  丢包数："+packetOfFlows.get(sp).getDropNum();
 		} else {
 			text="端口："+"SwitchPort [switchDPID=" + sp.getSwitchDPID().toString() +
 		               ", port=" + sp.getPort()+"  主机："+saviProvider.getHostWithPort().get(sp) + "恢复正常---" + "攻击结束时间: "+sdflog.format(System.currentTimeMillis())
-		               +"---发包："+(packetOfFlows.get(sp).getPassNum()+packetOfFlows.get(sp).getLossNum())+"  丢包率："+packetOfFlows.get(sp).getlossRate()
-		               +"  丢包数："+packetOfFlows.get(sp).getLossNum();
+		               +"---发包："+(packetOfFlows.get(sp).getPassNum()+packetOfFlows.get(sp).getDropNum())+"  丢包率："+packetOfFlows.get(sp).getDropRate()
+		               +"  丢包数："+packetOfFlows.get(sp).getDropNum();
 		}
 		try {
 			synchronized (filePath5) {

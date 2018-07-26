@@ -4,29 +4,25 @@ public class PacketOfFlow {
 	//上一个时间窗口，验证通过的数据包数
 	long passNum;
 	//上一个时间窗口，验证失败被丢弃的数据包数
-	long lossNum;
+	long dropNum;
 	//累计验证通过的数据包数
 	long accumulatePassNum;
 	//累计验证失败被丢弃的数据包数
-	long accumulateLossNum;
+	long accumulateDropNum;
 	//上一个时间窗口的丢包率
-	double lossRate;
+	double dropRate;
 	//累计丢包率
-	double accumulateLossRate;
+	double accumulateDropRate;
 	
-	public double getlossRate() {
-		return lossRate;
-	}
-
-	public PacketOfFlow(long passNum, long lossNum, long accumulatePassNum, long accumulateLossNum, double lossRate,
-			double accumulateLossRate) {
+	public PacketOfFlow(long passNum, long dropNum, long accumulatePassNum, long accumulateDropNum, double dropRate,
+			double accumulateDropRate) {
 		super();
 		this.passNum = passNum;
-		this.lossNum = lossNum;
+		this.dropNum = dropNum;
 		this.accumulatePassNum = accumulatePassNum;
-		this.accumulateLossNum = accumulateLossNum;
-		this.lossRate = lossRate;
-		this.accumulateLossRate = accumulateLossRate;
+		this.accumulateDropNum = accumulateDropNum;
+		this.dropRate = dropRate;
+		this.accumulateDropRate = accumulateDropRate;
 	}
 
 	public long getPassNum() {
@@ -37,12 +33,12 @@ public class PacketOfFlow {
 		this.passNum = passNum;
 	}
 
-	public long getLossNum() {
-		return lossNum;
+	public long getDropNum() {
+		return dropNum;
 	}
 
-	public void setLossNum(long lossNum) {
-		this.lossNum = lossNum;
+	public void setDropNum(long dropNum) {
+		this.dropNum = dropNum;
 	}
 
 	public long getAccumulatePassNum() {
@@ -53,28 +49,36 @@ public class PacketOfFlow {
 		this.accumulatePassNum = accumulatePassNum;
 	}
 
-	public long getAccumulateLossNum() {
-		return accumulateLossNum;
+	public long getAccumulateDropNum() {
+		return accumulateDropNum;
 	}
 
-	public void setAccumulateLossNum(long accumulateLossNum) {
-		this.accumulateLossNum = accumulateLossNum;
+	public void setAccumulateDropNum(long accumulateDropNum) {
+		this.accumulateDropNum = accumulateDropNum;
 	}
 
-	public double getLossRate() {
-		return lossRate;
+	public double getDropRate() {
+		return dropRate;
 	}
 
-	public void setLossRate(double lossRate) {
-		this.lossRate = lossRate;
+	public void setDropRate(double dropRate) {
+		this.dropRate = dropRate;
 	}
 
-	public double getAccumulateLossRate() {
-		return accumulateLossRate;
+	public double getAccumulateDropRate() {
+		return accumulateDropRate;
 	}
 
-	public void setAccumulateLossRate(double accumulateLossRate) {
-		this.accumulateLossRate = accumulateLossRate;
+	public void setAccumulateDropRate(double accumulateDropRate) {
+		this.accumulateDropRate = accumulateDropRate;
 	}
 	
+	public void init() {
+		this.passNum = 0;
+		this.dropNum = 0;
+		this.accumulatePassNum = 0;
+		this.accumulateDropNum = 0;
+		this.dropRate = 0;
+		this.accumulateDropRate = 0;
+	}
 }

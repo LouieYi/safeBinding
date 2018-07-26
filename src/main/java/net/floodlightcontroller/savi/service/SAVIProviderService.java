@@ -45,5 +45,5 @@ public interface SAVIProviderService extends IFloodlightService {
 	public void doFlowRemove(DatapathId switchId, TableId tableId, Match match);
 	public void doFlowAdd(DatapathId switchId, TableId tableId, Match match, List<OFAction> actions,
 			List<OFInstruction> instructions, int priority);
-	public Map<SwitchPort,Integer> getPushFlowToSwitchPorts();
+	public Set<SwitchPort> getPushFlowToSwitchPorts();
 }

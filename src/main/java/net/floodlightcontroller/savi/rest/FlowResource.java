@@ -178,18 +178,25 @@ public class FlowResource extends ServerResource {
 					instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(TableId.of(Integer.parseInt(splits[1]))));
 				}
 				
-				if(dpId.getLong()!=1&&port.getPortNumber()!=1) {
-					saviProvider.getPushFlowToSwitchPorts().put(new SwitchPort(dpId, port), 0);
-				}
 				
 			}
 		}catch(Exception e){
 			e.printStackTrace();
 		}
-		mb.setExact(MatchField.ETH_TYPE, EthType.IPv6);
-		FlowAction action=FlowActionFactory.getFlowAddAction(
-				dpId, tid, mb.build(), ofActions, instructions, priority);
-		actions.add(action);
+		
+		if(dpId.getLong()!=1&&port.getPortNumber()!=1) {
+			saviProvider.getPushFlowToSwitchPorts().add(new SwitchPort(dpId, port));
+		}
+		
+		try {
+			Thread.sleep(1000);
+			mb.setExact(MatchField.ETH_TYPE, EthType.IPv6);
+			FlowAction action=FlowActionFactory.getFlowAddAction(
+					dpId, tid, mb.build(), ofActions, instructions, priority);
+			actions.add(action);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	//match中必须有dpid,in_port，可以说，这个方法是专门为了下发验证规则+配套规则的，所以优先级默认设定为5、4.
@@ -232,20 +239,26 @@ public class FlowResource extends ServerResource {
 			e.printStackTrace();
 		}
 		mb.setExact(MatchField.ETH_TYPE, EthType.IPv6);
-		instructions=new ArrayList<>();
-		instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(TableId.of(2)));
-		//这一条构造验证规则
-		FlowAction action = FlowActionFactory.getFlowAddAction(
-				dpId, tid, mb.build(), null, instructions, priority);
-		//这一条构造通配规则，动作是丢包，优先级比上面的低一级
-		FlowAction anyAction = FlowActionFactory.getFlowAddAction(
-				dpId, tid, mb2.build(), null, null, priority - 1);
-		
-		actions.add(action);
-		actions.add(anyAction);
 		
 		if(dpId.getLong()!=1&&port.getPortNumber()!=1) {
-			saviProvider.getPushFlowToSwitchPorts().put(new SwitchPort(dpId, port), 0);
+			saviProvider.getPushFlowToSwitchPorts().add(new SwitchPort(dpId, port));
+		}
+		
+		try {
+			Thread.sleep(1000);
+			instructions=new ArrayList<>();
+			instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(TableId.of(2)));
+			//这一条构造验证规则
+			FlowAction action = FlowActionFactory.getFlowAddAction(
+					dpId, tid, mb.build(), null, instructions, priority);
+			//这一条构造通配规则，动作是丢包，优先级比上面的低一级
+			FlowAction anyAction = FlowActionFactory.getFlowAddAction(
+					dpId, tid, mb2.build(), null, null, priority - 1);
+			
+			actions.add(action);
+			actions.add(anyAction);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 	}
 	
@@ -390,7 +403,8 @@ public class FlowResource extends ServerResource {
 		DatapathId datapathId=DatapathId.of(1);
 		TableId tid=TableId.of(1);
 		Match.Builder mb=OFFactories.getFactory(OFVersion.OF_13).buildMatch();
-
+		
+		OFPort port=OFPort.of(1);
 		//为避免parseInt等转换出现运行时异常，对其进行捕捉
 		try{
 			for(String key:map.keySet()){
@@ -412,6 +426,10 @@ public class FlowResource extends ServerResource {
 			}
 		}catch(Exception e){
 			e.printStackTrace();
+		}
+		if(saviProvider.getPushFlowToSwitchPorts().contains(new SwitchPort(datapathId, port))) {
+			log.info("交换机端口：  "+datapathId+"--"+port+"  不存在手动下发的验证规则，删除动作无效");
+			return ;
 		}
 		mb.setExact(MatchField.ETH_TYPE, EthType.IPv6);
 		FlowAction action=FlowActionFactory.getFlowRemoveAction(
