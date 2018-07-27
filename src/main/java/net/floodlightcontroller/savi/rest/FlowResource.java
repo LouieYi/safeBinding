@@ -85,14 +85,15 @@ public class FlowResource extends ServerResource {
 	public static final String RESUBMIT="resubmit";
 	
 	//获取相关Service以帮助下发流表
-	SAVIProviderService saviProvider=
-			(SAVIProviderService)getContext().getAttributes()
-			.get(SAVIProviderService.class.getCanonicalName());
+	SAVIProviderService saviProvider=null;
 	
 	//重点在于提交的数据，对底层网络的修改，所以不重视返回值的类型
 	@Post
 	public String post(String json){
 		List<FlowAction> actions=new ArrayList<>();
+		
+		saviProvider=(SAVIProviderService)getContext().getAttributes()
+		.get(SAVIProviderService.class.getCanonicalName());
 		
 		Map<String, String> jsonMap=SaviUtils.jsonToStringMap(json);
 		for(Map.Entry<String, String> entry:jsonMap.entrySet()){

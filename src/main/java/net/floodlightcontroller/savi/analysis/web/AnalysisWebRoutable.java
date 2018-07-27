@@ -14,6 +14,8 @@ public class AnalysisWebRoutable implements RestletRoutable {
 	protected static final String STAGE_INIT = "init";
 	protected static final String PLAN_TYPE = "plan";
 	protected static final String ISAUTO = "isAuto";
+	protected static final String TABLE_ID = "tableId";
+	protected static final String SWITCH_ID = "switchId";
 	
 	@Override
 	public Router getRestlet(Context context) {
@@ -36,6 +38,7 @@ public class AnalysisWebRoutable implements RestletRoutable {
 		
 		router.attach("/hosts/credit/json", HostsCreditResource.class);	//get hosts credit
 		router.attach("/setting/auto/{"+ ISAUTO +"}", AutoCheckResource.class);	//set auto check
+		router.attach("/flow/{"+SWITCH_ID+"}/{"+TABLE_ID+"}/json", FlowResource.class);
 		
 		return router;                                                            
 	}
