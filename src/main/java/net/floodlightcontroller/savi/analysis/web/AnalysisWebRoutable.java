@@ -16,6 +16,7 @@ public class AnalysisWebRoutable implements RestletRoutable {
 	protected static final String ISAUTO = "isAuto";
 	protected static final String TABLE_ID = "tableId";
 	protected static final String SWITCH_ID = "switchId";
+	protected static final String ISDYNAMIC = "dynamic";
 	
 	@Override
 	public Router getRestlet(Context context) {
@@ -39,6 +40,7 @@ public class AnalysisWebRoutable implements RestletRoutable {
 		router.attach("/hosts/credit/json", HostsCreditResource.class);	//get hosts credit
 		router.attach("/setting/auto/{"+ ISAUTO +"}", AutoCheckResource.class);	//set auto check
 		router.attach("/flow/{"+SWITCH_ID+"}/{"+TABLE_ID+"}/json", FlowResource.class);
+		router.attach("/rule/{"+SWITCH_ID+"}/{"+ISDYNAMIC+"}", RuleNumberResource.class);
 		
 		return router;                                                            
 	}

@@ -1,5 +1,8 @@
 package net.floodlightcontroller.savi.analysis.web;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.projectfloodlight.openflow.protocol.OFStatsType;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.TableId;
@@ -15,8 +18,8 @@ public class FlowResource extends FlowResourceBase{
 	Logger log=LoggerFactory.getLogger(FlowResource.class);
 	
 	@Get("json")
-	public StatsReply retrieve() {
-		StatsReply result=new StatsReply();
+	public Set<StatsReply> retrieve() {
+		Set<StatsReply> res=new HashSet<>();
 		Object values=null;
 		String tableIdStr=(String) getRequestAttributes().get(AnalysisWebRoutable.TABLE_ID);
 		String switchIdStr=(String) getRequestAttributes().get(AnalysisWebRoutable.SWITCH_ID);
@@ -33,7 +36,7 @@ public class FlowResource extends FlowResourceBase{
 				switchId=DatapathId.of(switchIdStr);
 			} catch (Exception e) {
 				log.info("解析交换机ID失败");
-				return result;
+				return res;
 			}
 		}
 		try {
@@ -41,20 +44,25 @@ public class FlowResource extends FlowResourceBase{
 			tableId=TableId.of(id);
 		} catch (Exception e) {
 			log.info("解析tableId失败");
-			return result;
-		}
-		if(switchId.equals(DatapathId.NONE)) {
-			values=getSwitchStatistics(saviProvider.getPortsInBind().keySet(), tableId);
-		}else {
-			values = getSwitchStatistics(switchId, tableId);
+			return res;
 		}
 		
-		result.setStatType(OFStatsType.FLOW);
+		if(switchId.equals(DatapathId.NONE)) {
+			for(DatapathId swid : saviProvider.getPortsInBind().keySet()) {
+				values=getSwitchStatistics(swid, tableId);
+				StatsReply result=new StatsReply();
+				result.setStatType(OFStatsType.FLOW);
+				result.setDatapathId(swid);
+				result.setValues(values);
+				res.add(result);
+			}
+			return res;
+		}
+		values = getSwitchStatistics(switchId, tableId);
+		StatsReply result=new StatsReply();
 		result.setDatapathId(switchId);
 		result.setValues(values);
-		
-		return result;
+		res.add(result);
+		return res;
 	}
-	
-	
 }

@@ -25,7 +25,6 @@ import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -141,10 +140,10 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private int LOSS_NUM_THRESHOLD = 100;
 	
 	//分别表示正常端口队列、异常端口队列
-	private Queue<SwitchPort> normalPorts = new ConcurrentLinkedQueue<>();
+	private Queue<SwitchPort> normalPorts /*= new ConcurrentLinkedQueue<>()*/;
 	private Set<SwitchPort> pickFromNormal = new HashSet<>();
-	private Queue<SwitchPort> abnormalPorts = new ConcurrentLinkedQueue<>();
-	private Map<SwitchPort, Integer> observePorts = new ConcurrentHashMap<>();
+	private Queue<SwitchPort> abnormalPorts /*= new ConcurrentLinkedQueue<>()*/;
+	private Map<SwitchPort, Integer> observePorts /*= new ConcurrentHashMap<>()*/;
 	//上一轮的正常端口
 	private Set<SwitchPort> rightPorts = new HashSet<>();
 	
@@ -244,9 +243,9 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		rank=			/*Provider.rank;*/						saviProvider.getRank();
 		portsInBind=	/*Provider.portsInBind;*/				saviProvider.getPortsInBind();
 		staticSwId=		/*Provider.staticSwId;*/				saviProvider.getStaticSwId();
-//		normalPorts=	/*Provider.normalPorts;*/				saviProvider.getNormalPorts();
-//		abnormalPorts=	/*Provider.abnormalPorts;*/				saviProvider.getAbnormalPorts();
-//		observePorts=	/*Provider.observePorts;*/				saviProvider.getObservePorts();
+		normalPorts=	/*Provider.normalPorts;*/				saviProvider.getNormalPorts();
+		abnormalPorts=	/*Provider.abnormalPorts;*/				saviProvider.getAbnormalPorts();
+		observePorts=	/*Provider.observePorts;*/				saviProvider.getObservePorts();
 		
 		//对配置文件参数进行解析
 		Map<String, String> config = context.getConfigParams(this);
@@ -586,7 +585,10 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			@Override
 			public void run(){
 				
-				normalPorts.addAll(rank.keySet());
+				for(SwitchPort sw : rank.keySet()) {
+					if(normalPorts.contains(sw)) continue;
+					normalPorts.offer(sw);
+				}
 				
 				for(DatapathId switchId : portsInBind.keySet()) {
 					IOFSwitch sw=switchService.getSwitch(switchId);
@@ -853,6 +855,11 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 			for(int i = 0 ; i < normalNum ; i++){
 				cur = normalPorts.poll();
 				if(saviProvider.getPushFlowToSwitchPorts().contains(cur)) {
+					if(normalPorts.isEmpty()) {
+						normalPorts.offer(cur);
+						break;
+					}
+					normalPorts.offer(cur);
 					i--;
 					continue;
 				}
@@ -1802,7 +1809,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 		*/
 	}
 	
-	public void writeErrorLog(SwitchPort sp, boolean isAbnormal) {
+	private void writeErrorLog(SwitchPort sp, boolean isAbnormal) {
 		String text="";
 		if (isAbnormal) {
 			long lossNum=packetOfFlows.get(sp).getDropNum();
@@ -1844,7 +1851,37 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 				e.printStackTrace();
 			}
 		}
-		
 	}
 	
+	@Override
+	public int calculateRule(DatapathId dpid,boolean isDynamic) {
+		if(isDynamic) {
+			int res=0;
+			IOFSwitch sw=switchService.getSwitch(dpid);
+			for(OFPort port :sw.getEnabledPortNumbers()) {
+				SwitchPort sp=new SwitchPort(dpid,port);
+				if(observePorts.containsKey(sp)||abnormalPorts.contains(sp))
+					res+=2;
+			}
+			return res;
+		}
+		int res=6;
+		IOFSwitch sw=switchService.getSwitch(dpid);
+		for(OFPort port : sw.getEnabledPortNumbers()) {
+			if(rank.containsKey(new SwitchPort(dpid, port))) {
+				res++;
+			}
+		}
+		return res;
+	}
+	
+	@Override
+	public int calculateRule(boolean isDynamic) {
+		if(isDynamic) {
+			int res=observePorts.size()*2+abnormalPorts.size()*2;
+			return res;
+		}
+		int res=rank.size()+portsInBind.size()*6;
+		return res;
+	}
 }

@@ -171,6 +171,7 @@ public class StatsReplySerializer extends JsonSerializer<StatsReply> {
 				// handle queue
 				break;
 			case FLOW:
+				jGen.writeNumberField("switchId", reply.getDatapathId().getLong());
 				serializeFlowReply((List<OFFlowStatsReply>) reply.getValues(), jGen);
 				break;
 			case AGGREGATE:

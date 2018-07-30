@@ -38,4 +38,8 @@ public interface IAnalysisService extends IFloodlightService {
 
 	public void setAutoCheck(boolean setAuto);
 
+	public int calculateRule(DatapathId dpid, boolean isDynamic);
+
+	public int calculateRule(boolean isDynamic);
+
 }

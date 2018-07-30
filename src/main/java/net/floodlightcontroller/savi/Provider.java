@@ -580,6 +580,19 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 							//静态savi验证流表  对非边缘交换机端口设置指令  更新时触发
 							doFlowAdd(update.getSrc(), STATIC_TABLE_ID, mb.build(), null, instructions, BINDING_LAYER_PRIORITY,0,0);
 							*/
+							
+						}else {
+							normalPorts.offer(new SwitchPort(update.getSrc(), update.getSrcPort()));
+						}
+						break;
+					case PORT_DOWN:
+						SwitchPort sp=new SwitchPort(update.getSrc(), update.getSrcPort());
+						if(normalPorts.contains(sp)) {
+							normalPorts.remove(sp);
+						}else if(observePorts.containsKey(sp)) {
+							observePorts.remove(sp);
+						}else if(abnormalPorts.contains(sp)) {
+							abnormalPorts.remove(sp);
 						}
 						break;
 					default:
@@ -1000,7 +1013,6 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		doFlowAdd(binding.getSwitchPort().getSwitchDPID(), STATIC_TABLE_ID, mb.build(), null, instructions, BINDING_LAYER_PRIORITY);
 		rank.put(binding.getSwitchPort(), BINDING_LAYER_PRIORITY);
 		hostWithPort.put(binding.getSwitchPort(), (int)(binding.getMacAddress().getLong()));
-		normalPorts.offer(binding.getSwitchPort());
 	}
 	
 	/**
@@ -1044,13 +1056,13 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 		System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$解绑发生了");
 		
 		rank.remove(binding.getSwitchPort());
-		if(observePorts.containsKey(binding.getSwitchPort())) {
-			observePorts.remove(binding.getSwitchPort());
-		}else if(abnormalPorts.contains(binding.getSwitchPort())) {
-			abnormalPorts.remove(binding.getSwitchPort());
-		}else {
-			normalPorts.remove(binding.getSwitchPort());
-		}
+//		if(observePorts.containsKey(binding.getSwitchPort())) {
+//			observePorts.remove(binding.getSwitchPort());
+//		}else if(abnormalPorts.contains(binding.getSwitchPort())) {
+//			abnormalPorts.remove(binding.getSwitchPort());
+//		}else {
+//			normalPorts.remove(binding.getSwitchPort());
+//		}
 		hostWithPort.remove(binding.getSwitchPort());
 		/* 这里不能保留 动态的这个流表项不一定存在，删除会报错
 		//删除动态验证流表
