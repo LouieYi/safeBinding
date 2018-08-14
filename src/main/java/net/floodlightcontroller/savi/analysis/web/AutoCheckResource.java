@@ -18,10 +18,10 @@ public class AutoCheckResource extends ServerResource{
 		String autoCheck=(String) getRequestAttributes().get(AnalysisWebRoutable.ISAUTO);
 		if(autoCheck.toLowerCase().equals("true")) {
 			analysisService.setAutoCheck(true);
-			return Collections.singletonMap("auto", "to auto check");
+			return Collections.singletonMap("success", "change to auto check");
 		}else if(autoCheck.toLowerCase().equals("false")) {
 			analysisService.setAutoCheck(false);
-			return Collections.singletonMap("not auto", "check by administrator only");
+			return Collections.singletonMap("success", "change to no check");
 		}else {
 			return Collections.singletonMap("ERROR", "input the wrong site");
 		}

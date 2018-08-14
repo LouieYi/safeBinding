@@ -49,7 +49,10 @@ public class FlowResource extends FlowResourceBase{
 		
 		if(switchId.equals(DatapathId.NONE)) {
 			for(DatapathId swid : saviProvider.getPortsInBind().keySet()) {
-				values=getSwitchStatistics(swid, tableId);
+//				if(saviProvider.getStaticSwId().contains(swid)) 
+//					values=getSwitchStatistics(switchId, TableId.of(0));
+//				else 
+					values=getSwitchStatistics(swid, tableId);
 				StatsReply result=new StatsReply();
 				result.setStatType(OFStatsType.FLOW);
 				result.setDatapathId(swid);

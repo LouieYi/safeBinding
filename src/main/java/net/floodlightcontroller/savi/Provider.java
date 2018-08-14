@@ -374,7 +374,7 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 	//手动转为静态savi
 	@Override
 	public void convertTable(boolean isTrue) {
-		for(DatapathId dpid:switchService.getAllSwitchDpids()) {
+		for(DatapathId dpid : portsInBind.keySet()) {
 			convertTable(dpid,isTrue);
 		}
 	}
@@ -382,6 +382,10 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 	//当动态流表项比较多时，转为静态流表方案
 	@Override
 	public void convertTable(DatapathId dpid, boolean isTrue) {
+		if(!portsInBind.containsKey(dpid)) {
+			log.warn("交换机 "+dpid+" 不是边缘交换机，不用转换");
+			return ;
+		}
 		Match.Builder mb=OFFactories.getFactory(OFVersion.OF_13).buildMatch();
 		if(isTrue) {
 			if(staticSwId.contains(dpid)) {
@@ -572,17 +576,8 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 //						log.info("Provider line 569,port up");
 						if(!topologyService.isEdge(update.getSrc(), update.getSrcPort())){
 							securityPort.add(new SwitchPort(update.getSrc(), update.getSrcPort()));
-							/*
-							List<OFInstruction> instructions = new ArrayList<>();
-							instructions.add(OFFactories.getFactory(OFVersion.OF_13).instructions().gotoTable(FLOW_TABLE_ID));
-							Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
-							mb.setExact(MatchField.IN_PORT, update.getSrcPort());
-							//静态savi验证流表  对非边缘交换机端口设置指令  更新时触发
-							doFlowAdd(update.getSrc(), STATIC_TABLE_ID, mb.build(), null, instructions, BINDING_LAYER_PRIORITY,0,0);
-							*/
-							
 						}else {
-							normalPorts.offer(new SwitchPort(update.getSrc(), update.getSrcPort()));
+//							normalPorts.offer(new SwitchPort(update.getSrc(), update.getSrcPort()));
 						}
 						break;
 					case PORT_DOWN:

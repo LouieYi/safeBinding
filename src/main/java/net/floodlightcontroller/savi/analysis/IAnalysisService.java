@@ -1,5 +1,7 @@
 package net.floodlightcontroller.savi.analysis;
 
+import java.util.Map;
+
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.U64;
@@ -38,8 +40,10 @@ public interface IAnalysisService extends IFloodlightService {
 
 	public void setAutoCheck(boolean setAuto);
 
-	public int calculateRule(DatapathId dpid, boolean isDynamic);
+	public int calculateRule(DatapathId dpid);
 
-	public int calculateRule(boolean isDynamic);
+	public Map<DatapathId, Integer> calculateRule();
+
+	public String getFilePath();
 
 }

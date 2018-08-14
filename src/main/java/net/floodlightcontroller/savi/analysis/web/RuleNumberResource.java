@@ -17,12 +17,10 @@ public class RuleNumberResource extends ServerResource{
 	protected Object retrieve() {
 		IAnalysisService analysisService=(IAnalysisService) getContext().getAttributes().get(IAnalysisService.class.getCanonicalName());
 		String swStr=(String) getRequestAttributes().get(AnalysisWebRoutable.SWITCH_ID);
-		String isDynamicStr=(String) getRequestAttributes().get(AnalysisWebRoutable.ISDYNAMIC);
 		
-		boolean isDynamic=Boolean.parseBoolean(isDynamicStr);
 		if(swStr.equalsIgnoreCase("all")){
 			log.info("sucess");
-			return analysisService.calculateRule(isDynamic);
+			return analysisService.calculateRule();
 		}
 		DatapathId dpid;
 		try {
@@ -31,6 +29,6 @@ public class RuleNumberResource extends ServerResource{
 			log.error("Error, unable to parse switch id");
 			return null;
 		}
-		return analysisService.calculateRule(dpid, isDynamic);
+		return analysisService.calculateRule(dpid);
 	}
 }

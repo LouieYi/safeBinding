@@ -3,16 +3,12 @@ package net.floodlightcontroller.savi.module;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.projectfloodlight.openflow.protocol.OFFactories;
-import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.match.Match;
-import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFPort;
-import org.projectfloodlight.openflow.types.TransportPort;
 
 import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.packet.DHCP;
@@ -21,9 +17,9 @@ import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.UDP;
 import net.floodlightcontroller.routing.IRoutingDecision.RoutingAction;
 import net.floodlightcontroller.savi.action.Action;
+import net.floodlightcontroller.savi.action.Action.ActionFactory;
 import net.floodlightcontroller.savi.action.ClearIPv4BindingAction;
 import net.floodlightcontroller.savi.action.ClearSwitchBindingAction;
-import net.floodlightcontroller.savi.action.Action.ActionFactory;
 import net.floodlightcontroller.savi.binding.Binding;
 import net.floodlightcontroller.savi.binding.BindingPool;
 import net.floodlightcontroller.savi.binding.BindingStatus;

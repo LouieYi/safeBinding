@@ -42,7 +42,7 @@ public class ChangeTableResource extends ServerResource {
 			}else {
 				saviProviderService.convertTable(dpid,true);
 			}
-			return Collections.singletonMap("changeToStatic", "sucess to change to static"+dpid);
+			return Collections.singletonMap("changeToStatic", dpid+" sucess to change to static");
 		}
 		
 		if(getReference().getPath().contains(SAVIRestRoute.CONVERT_TO_DYNAMIC)){
@@ -51,7 +51,7 @@ public class ChangeTableResource extends ServerResource {
 			}else {
 				saviProviderService.convertTable(dpid,false);
 			}
-			return Collections.singletonMap("changeToDynamic", "sucess to change to dynamic"+dpid);
+			return Collections.singletonMap("changeToDynamic", dpid+" sucess to change to dynamic");
 		}
 		
 		return Collections.singletonMap("ChangeTableResource ERROR", "Unimplemented configuration option");

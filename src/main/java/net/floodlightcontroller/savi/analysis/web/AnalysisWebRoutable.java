@@ -42,6 +42,8 @@ public class AnalysisWebRoutable implements RestletRoutable {
 		router.attach("/flow/{"+SWITCH_ID+"}/{"+TABLE_ID+"}/json", FlowResource.class);
 		router.attach("/rule/{"+SWITCH_ID+"}/{"+ISDYNAMIC+"}", RuleNumberResource.class);
 		
+		router.attach("/log/attacklog/json", AttackLogResource.class);
+		
 		return router;                                                            
 	}
 
