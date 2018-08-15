@@ -3,12 +3,16 @@ package net.floodlightcontroller.savi.module;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.projectfloodlight.openflow.protocol.OFFactories;
+import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.match.Match;
+import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFPort;
+import org.projectfloodlight.openflow.types.TransportPort;
 
 import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.packet.DHCP;
@@ -266,22 +270,22 @@ public class DHCPService extends SAVIBaseService {
 		// TODO Auto-generated method stub
 		List<Match> array = new ArrayList<>();
 		
-//		Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
-//		mb.setExact(MatchField.ETH_TYPE, EthType.IPv4);
-//		mb.setExact(MatchField.IP_PROTO, IpProtocol.UDP);
-//		mb.setExact(MatchField.UDP_DST, TransportPort.of(67));
-//		mb.setExact(MatchField.UDP_SRC, TransportPort.of(68));
-//		
-//		array.add(mb.build());
-//		
-//		mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
-//		
-//		mb.setExact(MatchField.ETH_TYPE, EthType.IPv4);
-//		mb.setExact(MatchField.IP_PROTO, IpProtocol.UDP);
-//		mb.setExact(MatchField.UDP_DST, TransportPort.of(68));
-//		mb.setExact(MatchField.UDP_SRC, TransportPort.of(67));
-//		
-//		array.add(mb.build());
+		Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
+		mb.setExact(MatchField.ETH_TYPE, EthType.IPv4);
+		mb.setExact(MatchField.IP_PROTO, IpProtocol.UDP);
+		mb.setExact(MatchField.UDP_DST, TransportPort.of(67));
+		mb.setExact(MatchField.UDP_SRC, TransportPort.of(68));
+		
+		array.add(mb.build());
+		
+		mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
+		
+		mb.setExact(MatchField.ETH_TYPE, EthType.IPv4);
+		mb.setExact(MatchField.IP_PROTO, IpProtocol.UDP);
+		mb.setExact(MatchField.UDP_DST, TransportPort.of(68));
+		mb.setExact(MatchField.UDP_SRC, TransportPort.of(67));
+		
+		array.add(mb.build());
 		
 		return array;
 	}

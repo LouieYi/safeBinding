@@ -527,7 +527,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 				for(DatapathId switchId : portsInBind.keySet()) {
 					IOFSwitch sw=switchService.getSwitch(switchId);
 					Collection<OFPort> ports=sw.getEnabledPortNumbers();
-					staticRuleNumber.put(switchId, 6+ports.size());
+					staticRuleNumber.put(switchId, 5+ports.size());
 					for(OFPort port : ports) {
 						if(rank.containsKey(new SwitchPort(switchId, port))) continue;
 						Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
@@ -715,7 +715,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private class NormalPortThread extends Thread {
 		@Override
 		public void run() {
-			System.out.println("normal =================");
+//			System.out.println("normal =================");
 			
 			SwitchPort cur = null;
 			Set<SwitchPort> handleSet = new HashSet<>();
@@ -754,7 +754,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private class AbnormalPortThread extends Thread {
 		@Override
 		public void run() {
-			System.out.println("abnormal ===================");
+//			System.out.println("abnormal ===================");
 			//1.找出本次统计中，变得正常的端口，包括其他队列的元素
 //			getChangeNormalPorts(STATUS);
 			//2.选出和abnormalPorts的交集，移出到观察队列
@@ -792,7 +792,7 @@ public class DataAnalysis implements IFloodlightModule, IAnalysisService {
 	private class ObservePortThread extends Thread {
 		@Override
 		public void run() {
-			System.out.println("observe ===================");
+//			System.out.println("observe ===================");
 			//放回正常队列，撤销规则的端口列表
 			Set<SwitchPort> actionPorts = new HashSet<>();
 			//循环遍历修改吧，出错也没办法了

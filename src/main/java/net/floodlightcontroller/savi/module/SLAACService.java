@@ -8,20 +8,17 @@ import java.util.concurrent.TimeUnit;
 
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFVersion;
-import org.projectfloodlight.openflow.protocol.instruction.OFInstruction;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv6Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.MacAddress;
-import org.projectfloodlight.openflow.types.TableId;
 
 import net.floodlightcontroller.core.util.SingletonTask;
 import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.ICMPv6;
-import net.floodlightcontroller.packet.IPacket;
 import net.floodlightcontroller.packet.IPv6;
 import net.floodlightcontroller.routing.IRoutingDecision.RoutingAction;
 import net.floodlightcontroller.savi.action.Action;
@@ -32,8 +29,6 @@ import net.floodlightcontroller.savi.action.ClearSwitchBindingAction;
 import net.floodlightcontroller.savi.binding.Binding;
 import net.floodlightcontroller.savi.binding.BindingPool;
 import net.floodlightcontroller.savi.binding.BindingStatus;
-import net.floodlightcontroller.savi.flow.FlowAction;
-import net.floodlightcontroller.savi.flow.FlowAction.FlowActionFactory;
 
 public class SLAACService extends SAVIBaseService {
 
@@ -245,7 +240,6 @@ public class SLAACService extends SAVIBaseService {
 	}
 	@Override
 	public List<Match> getMatches() {
-		// TODO Auto-generated method stub
 		List<Match> array = new ArrayList<>();
 		
 		Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();

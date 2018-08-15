@@ -14,7 +14,7 @@ public class RuleNumberResource extends ServerResource{
 	
 	
 	@Get("json")
-	protected Object retrieve() {
+	public Object retrieve() {
 		IAnalysisService analysisService=(IAnalysisService) getContext().getAttributes().get(IAnalysisService.class.getCanonicalName());
 		String swStr=(String) getRequestAttributes().get(AnalysisWebRoutable.SWITCH_ID);
 		

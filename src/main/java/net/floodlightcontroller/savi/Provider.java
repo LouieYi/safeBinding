@@ -699,16 +699,6 @@ IOFMessageListener, ITopologyListener, SAVIProviderService, ILinkDiscoveryListen
 			} else {
 				//DHCP协议和SLAAC协议通信时 设置的匹配规则(静态流表规则)
 				doFlowAdd(switchId, STATIC_TABLE_ID, match, actions, null, SERVICE_LAYER_PRIORITY);
-				/*
-				Map<String, String> matchMap	=new HashMap<>();
-				Iterator<MatchField<?>> iter=match.getMatchFields().iterator();
-				while(iter.hasNext()) {
-					MatchField<?> mf=iter.next();
-					System.out.println("-----------------------"+mf.getName());
-					matchMap.put(mf.getName(), match.get(mf).toString());
-				}
-				set.add(new ValidationRuleFlowEntry(STATIC_TABLE_ID.getValue(), 0, SERVICE_LAYER_PRIORITY,matchMap, "CONTROLLER:65535"));
-				*/
 			}
 			
 		}
