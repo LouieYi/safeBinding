@@ -67,10 +67,14 @@ public class DHCPv6Service extends SAVIBaseService {
 			
 		case RENEW:
 			break;
+		case REBIND:
+			break;
 		case CONFIRM:
 			return processConfirm(switchPort, eth);
 		case DECLINE:
 			return processDecline(switchPort, eth);
+		case RELEASE:
+			break;
 		default:
 			log.info("Error: wrong DHCPv6 message type!");
 		}
@@ -100,6 +104,7 @@ public class DHCPv6Service extends SAVIBaseService {
 		log.info("ADV "+id);
 		
 		actions.add(ActionFactory.getCheckIPv6Binding(switchPort, eth.getSourceMACAddress(), ipv6Address));
+		//绑定dhcp服务器
 		if(!pool.isContain(ipv6Address)&&!saviProvider.pushActions(actions)){
 			Binding<IPv6Address> binding = new Binding<>();
 			
@@ -129,13 +134,13 @@ public class DHCPv6Service extends SAVIBaseService {
 		Binding<IPv6Address> binding = new Binding<>();
 		int id = dhcpv6.getTransactionId();
 		log.info("REQUEST "+id);
+
 		binding.setAddress(ipv6Address);
 		binding.setStatus(BindingStatus.REQUESTING);
 		binding.setMacAddress(mac);
 		binding.setTransactionId(dhcpv6.getTransactionId());
 		binding.setSwitchPort(switchPort);
 		pool.addBinding(ipv6Address, binding);
-		
 		actions.add(ActionFactory.getFloodAction(switchPort.getSwitchDPID(), switchPort.getPort(), eth));
 		saviProvider.pushActions(actions);
 		return RoutingAction.NONE;
@@ -171,7 +176,8 @@ public class DHCPv6Service extends SAVIBaseService {
 				actions.add(ActionFactory.getBindIPv6Action(binding));
 				
 			}
-			else if(binding.getStatus() == BindingStatus.REBINDING){
+			else if(binding.getStatus() == BindingStatus.RENEWING
+					||binding.getStatus() == BindingStatus.REBINDING){
 				binding.setStatus(BindingStatus.BOUND);
 				binding.setLeaseTime(dhcpv6.getValidLifetime());
 				binding.setBindingTime();
@@ -288,11 +294,27 @@ public class DHCPv6Service extends SAVIBaseService {
 		// TODO Auto-generated method stub
 		return processDHCPv6(switchPort, eth);
 	}
-	
+
+	@Override
+	public void handlePortDown(SwitchPort switchPort) {
+		//todo
+	}
+
 	@Override
 	public void checkDeadline() {
 		// TODO Auto-generated method stub
-		
+//		List<Action> actions = new ArrayList<>();
+//		for(Binding<IPv6Address> binding:pool.getAllBindings()){
+//			if(binding.getStatus() != BindingStatus.BOUND)
+//				continue;
+//			if(binding.isLeaseExpired()){
+//				actions.add(ActionFactory.getUnbindIPv6Action(binding.getAddress(), binding));
+//				pool.delBinding(binding.getAddress());
+//			}
+//		}
+//		if(actions.size()>0){
+//			saviProvider.pushActions(actions);
+//		}
 	}
 
 }

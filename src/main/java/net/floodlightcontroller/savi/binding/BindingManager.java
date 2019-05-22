@@ -154,18 +154,21 @@ public class BindingManager {
 		
 		if(address.getIpVersion() == IPVersion.IPv4){
 			binding = ipv4Binding.get(address);
+			System.out.println("ipv4 binding");
 		}
 		else {
 			binding = ipv6Binding.get(address);
 		}
 		
 		if(binding == null) {
+			System.out.println("binding == null");
 			return false;
 		}
 		else {
 			if (binding.getMacAddress().equals(macAddress) && binding.getSwitchPort().equals(switchPort)) {
 				return true;
 			} else {
+				System.out.println(binding.getMacAddress().toString()+"   return false   "+binding.getSwitchPort().toString());
 				return false;
 			}
 		}

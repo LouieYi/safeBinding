@@ -270,7 +270,7 @@ public class DHCPService extends SAVIBaseService {
 		// TODO Auto-generated method stub
 		List<Match> array = new ArrayList<>();
 		
-		Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
+		Match.Builder mb = OFFactories.getFactory(OFVersion.OF_14).buildMatch();
 		mb.setExact(MatchField.ETH_TYPE, EthType.IPv4);
 		mb.setExact(MatchField.IP_PROTO, IpProtocol.UDP);
 		mb.setExact(MatchField.UDP_DST, TransportPort.of(67));
@@ -278,7 +278,7 @@ public class DHCPService extends SAVIBaseService {
 		
 		array.add(mb.build());
 		
-		mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
+		mb = OFFactories.getFactory(OFVersion.OF_14).buildMatch();
 		
 		mb.setExact(MatchField.ETH_TYPE, EthType.IPv4);
 		mb.setExact(MatchField.IP_PROTO, IpProtocol.UDP);
@@ -295,7 +295,14 @@ public class DHCPService extends SAVIBaseService {
 		// TODO Auto-generated method stub
 		return processDHCP(switchPort, eth);
 	}
-	
+
+	@Override
+	public void handlePortDown(SwitchPort switchPort) {
+//		for(Binding<?> binding : pool.getAllBindings()){
+//
+//		}
+	}
+
 	@Override
 	public void checkDeadline(){
 		List<Action> actions = new ArrayList<>();

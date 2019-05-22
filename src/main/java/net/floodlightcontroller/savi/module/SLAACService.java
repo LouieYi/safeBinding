@@ -145,8 +145,8 @@ public class SLAACService extends SAVIBaseService {
 		Binding<IPv6Address> binding = null;
 		
 		//对不工整mac、ip进行过滤
-		if(!macAddress.toString().contains("00:00:00:00")||
-				!targetAddress.toString().contains("200:ff:fe00")){
+		if(!macAddress.toString().contains("00:00:00")/*||
+				!targetAddress.toString().contains("200:ff:fe00")*/){
 			//log.info(macAddress.toString() + "-" + targetAddress.toString());
 			return RoutingAction.NONE;
 		}
@@ -163,6 +163,7 @@ public class SLAACService extends SAVIBaseService {
 			//log.info("forward or flood");
 			return RoutingAction.FORWARD_OR_FLOOD;
 		}
+		//考虑的是 主机迁移
 		else if(pool.isContain(targetAddress)){
 			//log.info("pool is contain");
 			actions.clear();
@@ -257,7 +258,12 @@ public class SLAACService extends SAVIBaseService {
 		// TODO Auto-generated method stub
 		return processICMPv6(switchPort, eth);
 	}
-	
+
+	@Override
+	public void handlePortDown(SwitchPort switchPort) {
+		//todo
+	}
+
 	@Override
 	public void checkDeadline(){
 		List<Action> actions = new ArrayList<>();

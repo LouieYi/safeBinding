@@ -13,4 +13,5 @@ public interface SAVIService {
 	public List<Match> getMatches();
 	public RoutingAction process(SwitchPort switchPort,Ethernet eth);
 	public void pushActins(List<Action> actions);
+	public void handlePortDown(SwitchPort switchPort);
 }

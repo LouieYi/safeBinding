@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.projectfloodlight.openflow.types.IPv6Address;
+import org.sdnplatform.sync.thrift.EchoRequestMessage;
 
 /**
  * 
@@ -17,11 +18,23 @@ public class ICMPv6 extends BasePacket {
 	protected byte icmpv6Type;
 	protected byte icmpv6Code;
 	protected short checksum;
+	protected List<ICMPv6Option> options = null;
+	//NA
 	protected boolean routerFlag;
 	protected boolean solicitedFlag;
 	protected boolean overrideFlag;
-	protected List<ICMPv6Option> options = null;
+	//NS&NA
 	protected IPv6Address targetAddress;
+	//RA
+	protected byte curHopLimit;
+	protected boolean managedAddressConfiguration;
+	protected boolean otherConfiguration;
+	protected short routerLifeTime;
+	protected int reachableTime;
+	protected int retransTime;
+	//echo request data
+	protected byte[] echoRequestData;
+	//others
 	protected byte[] cache;
 	
 	protected static final Map<Byte, Integer> paddingMap;
@@ -88,6 +101,52 @@ public class ICMPv6 extends BasePacket {
 		this.checksum = checksum;
 	}
 
+	public boolean isRouterFlag() {
+		return routerFlag;
+	}
+
+	public void setRouterFlag(boolean routerFlag) {
+		this.routerFlag = routerFlag;
+	}
+
+	public boolean isSolicitedFlag() {
+		return solicitedFlag;
+	}
+
+	public void setSolicitedFlag(boolean solicitedFlag) {
+		this.solicitedFlag = solicitedFlag;
+	}
+
+	public boolean isOverrideFlag() {
+		return overrideFlag;
+	}
+
+	public void setOverrideFlag(boolean overrideFlag) {
+		this.overrideFlag = overrideFlag;
+	}
+
+	public boolean isManagedAddressConfiguration() {
+		return managedAddressConfiguration;
+	}
+
+	public void setManagedAddressConfiguration(boolean managedAddressConfiguration) {
+		this.managedAddressConfiguration = managedAddressConfiguration;
+	}
+
+	public boolean isOtherConfiguration() {
+		return otherConfiguration;
+	}
+
+	public void setOtherConfiguration(boolean otherConfiguration) {
+		this.otherConfiguration = otherConfiguration;
+	}
+
+	public List<ICMPv6Option> getOptions() {
+		return options;
+	}
+
+	public void setOptions(List<ICMPv6Option> options){ this.options = options; }
+
 	@Override
 	public int hashCode() {
         final int prime = 5807;
@@ -99,80 +158,89 @@ public class ICMPv6 extends BasePacket {
 	}
 	@Override
 	public byte[] serialize() {
-		// TODO Auto-generated method stub
-		
-		int length = 4;
-		int padding = 0;
-		if(paddingMap.containsKey(this.icmpv6Type)){
-			padding = paddingMap.get(this.icmpv6Type);
-			length += padding;
+		int len=0;
+		if (this.options != null) {
+			for(ICMPv6Option icmPv6Option : this.options){
+				len+=icmPv6Option.getLength()*8;
+			}
 		}
-		if(icmpv6Type == NEIGHBOR_SOLICITATION){
-			length += 16;
-		}
-		for(ICMPv6Option option:options){
-			length += (int)option.getLength()*8 + 2;
-		}
-		
-		byte[] data = new byte[length];
-		ByteBuffer bb = ByteBuffer.wrap(data);
+		if(cache!=null)
+			return cache;
+
+		byte[] data=new byte[24+len];
+		ByteBuffer bb=ByteBuffer.wrap(data);
 		bb.put(this.icmpv6Type);
 		bb.put(this.icmpv6Code);
 		bb.putShort(this.checksum);
-		for(int i =0;i<padding;i++){
-			bb.put((byte)0);
-		}
-		if(icmpv6Type == NEIGHBOR_SOLICITATION){
+		if (this.icmpv6Type == ICMPv6.NEIGHBOR_SOLICITATION) {
+			bb.putInt(0);
+			bb.put(this.targetAddress.getBytes());
+			if (this.options != null) {
+				for(ICMPv6Option icmPv6Option : options){
+					bb.put(icmPv6Option.serilize());
+				}
+			}
+		}else if(this.icmpv6Type == ICMPv6.NEIGHBOR_ADVERTISEMENT){
+			bb.putInt(3<<30);
 			bb.put(targetAddress.getBytes());
+		}else {
+			//identifier
+			bb.putShort((short)0x9223);
+			//sequence
+			bb.putShort((short) 1);
 		}
-		for(ICMPv6Option option:options){
-			bb.put(option.serilize());
-		}
-		
-		return cache;
+
+		return data;
 	}
 
 	@Override
 	public IPacket deserialize(byte[] data, int offset, int length) throws PacketParsingException {
-		// TODO Auto-generated method stub
 		cache = new byte[length];	
 		for(int i=0;i<length;i++){
 			cache[i] = data[offset+i];
 		}
 		
 		ByteBuffer bb = ByteBuffer.wrap(data, offset, length);
-		this.routerFlag = false;
-		this.overrideFlag = false;
-		this.solicitedFlag = false;
 		this.icmpv6Type = bb.get();
 		this.icmpv6Code = bb.get();
 		this.checksum = bb.getShort();
 		
+
+		if(icmpv6Type!=NEIGHBOR_SOLICITATION&&icmpv6Type!=NEIGHBOR_ADVERTISEMENT
+				&&icmpv6Type!=ROUTER_ADVERTSEMENT) {
+			return this;
+		}
 		if(icmpv6Type == NEIGHBOR_ADVERTISEMENT){
 			byte tmp = bb.get();
 			
-			this.routerFlag = ((tmp&ROUTER_FLAG_MASK)==ROUTER_ADVERTSEMENT);
+			this.routerFlag = ((tmp&ROUTER_FLAG_MASK)==ROUTER_FLAG_MASK);
 			this.solicitedFlag = ((tmp&SOLIITED_FLAG_MASK)==SOLIITED_FLAG_MASK);
 			this.overrideFlag = ((tmp&OVERRIDE_FLAG_MASK)==OVERRIDE_FLAG_MASK);
 			
 			bb.get();
 			bb.getShort();
 		}
-		else if(paddingMap.containsKey(this.icmpv6Type)){
-			bb.position(bb.position()+paddingMap.get(this.icmpv6Type));
+		else if(icmpv6Type == NEIGHBOR_SOLICITATION){
+			bb.getInt();
+		}else if(icmpv6Type == ROUTER_ADVERTSEMENT){
+			this.curHopLimit = bb.get();
+			byte tmp=bb.get();
+			this.managedAddressConfiguration = ((tmp>>7)&1) == 1;
+			this.otherConfiguration = ((tmp>>6)&1) == 1;
+			this.routerLifeTime=bb.getShort();
+			this.reachableTime=bb.getInt();
+			this.retransTime=bb.getInt();
 		}
-		
+
 		if(icmpv6Type == NEIGHBOR_SOLICITATION||icmpv6Type == NEIGHBOR_ADVERTISEMENT){
 			options = new ArrayList<>();
 			byte[] tmp  = new byte[16];
 			bb.get(tmp, 0, 16);
 			targetAddress = IPv6Address.of(tmp);
 		}
-		else{
-			targetAddress = null;
-			options = ICMPv6Option.getOptions(data, bb.position());
-		}
-		
+
+		this.options = ICMPv6Option.getOptions(data, bb.position());
+
 		return this;
 	}
 }

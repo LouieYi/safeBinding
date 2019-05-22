@@ -15,6 +15,9 @@ public class Binding<T extends IPAddress<?>> {
 	private long transactionId;
 	private long bindingTime; 
 	private long leaseTime;
+
+	//0 --> linkLocal; 1 --> global; 2 --> temp;
+	private byte type;
 	
 	private static final int PRIME = 43;
 	
@@ -52,7 +55,7 @@ public class Binding<T extends IPAddress<?>> {
 			return false;
 		}
 		long currentTime = System.currentTimeMillis() / 1000;
-		if(currentTime>=(bindingTime+leaseTime)){
+		if(currentTime <= leaseTime){
 			return false;
 		}
 		else{
@@ -134,5 +137,13 @@ public class Binding<T extends IPAddress<?>> {
 	
 	public boolean expirable(){
 		return leaseTime == 0;
+	}
+
+	public byte getType() {
+		return type;
+	}
+
+	public void setType(byte type) {
+		this.type = type;
 	}
 }

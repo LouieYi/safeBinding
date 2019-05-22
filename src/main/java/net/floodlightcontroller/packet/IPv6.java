@@ -231,6 +231,9 @@ public class IPv6 extends BasePacket {
 				throw new RuntimeException("Error parsing payload for IPv6 packet", e);
 			}
 		} else {
+//			System.out.println(this.sourceAddress);
+//			System.out.println(this.destinationAddress);
+//			System.out.println(nextHeader.toString());
 			payload = new Data();
 		}
 		// Deserialize as much of the payload as we can (hopefully all of it).

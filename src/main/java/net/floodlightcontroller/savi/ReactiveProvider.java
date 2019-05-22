@@ -49,7 +49,7 @@ public class ReactiveProvider extends Provider {
 				return RoutingAction.FORWARD_OR_FLOOD;
 			}
 			else {
-				Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
+				Match.Builder mb = OFFactories.getFactory(OFVersion.OF_14).buildMatch();
 				mb.setExact(MatchField.IN_PORT, switchPort.getPort());
 				mb.setExact(MatchField.ETH_TYPE, EthType.IPv4);
 				mb.setExact(MatchField.IPV4_SRC, ipv4.getSourceAddress());
@@ -68,7 +68,7 @@ public class ReactiveProvider extends Provider {
 				return RoutingAction.FORWARD_OR_FLOOD;
 			}
 			else {
-				Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
+				Match.Builder mb = OFFactories.getFactory(OFVersion.OF_14).buildMatch();
 				mb.setExact(MatchField.IN_PORT, switchPort.getPort());
 				mb.setExact(MatchField.ETH_TYPE, EthType.IPv6);
 				mb.setExact(MatchField.IPV6_SRC, ipv6.getSourceAddress());
@@ -87,7 +87,7 @@ public class ReactiveProvider extends Provider {
 			}
 			else {
 				
-				Match.Builder mb = OFFactories.getFactory(OFVersion.OF_13).buildMatch();
+				Match.Builder mb = OFFactories.getFactory(OFVersion.OF_14).buildMatch();
 				mb.setExact(MatchField.IN_PORT, switchPort.getPort());
 				mb.setExact(MatchField.ETH_TYPE, EthType.ARP);
 				mb.setExact(MatchField.ARP_SPA, address);

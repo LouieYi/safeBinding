@@ -1,15 +1,9 @@
 package net.floodlightcontroller.savi;
 
-import org.projectfloodlight.openflow.types.EthType;
-import org.projectfloodlight.openflow.types.IPv4Address;
-import org.projectfloodlight.openflow.types.IPv6Address;
-import org.projectfloodlight.openflow.types.MacAddress;
+import net.floodlightcontroller.packet.*;
+import org.projectfloodlight.openflow.types.*;
 
 import net.floodlightcontroller.devicemanager.SwitchPort;
-import net.floodlightcontroller.packet.ARP;
-import net.floodlightcontroller.packet.Ethernet;
-import net.floodlightcontroller.packet.IPv4;
-import net.floodlightcontroller.packet.IPv6;
 import net.floodlightcontroller.routing.IRoutingDecision.RoutingAction;
 
 public class IgnoreProvider extends ReactiveProvider {
@@ -55,6 +49,12 @@ public class IgnoreProvider extends ReactiveProvider {
 			}
 			else {
 				//log.info("ipv6-none");
+				if (ipv6.getNextHeader() == IpProtocol.IPv6_ICMP) {
+					ICMPv6 icmPv6= (ICMPv6) ipv6.getPayload();
+					if (icmPv6.getICMPv6Type() == ICMPv6.ROUTER_ADVERTSEMENT) {
+						System.out.println("IgnoreProvider 55  RA报文被丢弃了");
+					}
+				}
 				return RoutingAction.NONE;
 			}
 			

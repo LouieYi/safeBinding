@@ -15,6 +15,7 @@ public class DHCPv6 extends BasePacket {
 	protected DHCPv6MessageType msgType;
 	protected int transactionId;
 	protected List<DHCPv6Option> options;
+
 	protected short duidType;
 	protected short hardwareType;
 	protected int time;
@@ -29,14 +30,12 @@ public class DHCPv6 extends BasePacket {
 	
 	@Override
 	public byte[] serialize() {
-		// TODO Auto-generated method stub
 		return cache;
 	}
 
 	@Override
 	public IPacket deserialize(byte[] data, int offset, int length) throws PacketParsingException {
-		// TODO Auto-generated method stub
-		cache = new byte[length];	
+		cache = new byte[length];
 		for(int i=0;i<length;i++){
 			cache[i] = data[offset+i];
 		}
@@ -47,7 +46,9 @@ public class DHCPv6 extends BasePacket {
 		transactionId = ((transactionId<<8)&0xFF00) + data[offset + 2];
 		transactionId = ((transactionId<<8)&0xFFFF00) + data[offset + 3];
 		options = DHCPv6Option.getOptions(data, offset + 4);
-		
+
+
+		//deal with options
 		for(DHCPv6Option option:options){
 			ByteBuffer bb = null;
 			switch(option.getCode()){

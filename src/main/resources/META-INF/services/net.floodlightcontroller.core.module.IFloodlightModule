@@ -32,7 +32,6 @@ net.floodlightcontroller.savi.Provider
 net.floodlightcontroller.savi.ReactiveProvider
 net.floodlightcontroller.savi.IgnoreProvider
 net.floodlightcontroller.savi.module.DHCPService
-net.floodlightcontroller.savi.module.SLAACService
-net.floodlightcontroller.savi.module.DHCPv6Service
+net.floodlightcontroller.savi.module.SafeBind
 net.floodlightcontroller.savi.statistics.StatisticsCollector
 net.floodlightcontroller.savi.analysis.DataAnalysis

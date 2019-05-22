@@ -1374,6 +1374,7 @@ public class TopologyManager implements IFloodlightModule, ITopologyService, IRo
 		 * to explicitly remove the existing link (if present).
 		 * Otherwise, new latency values for existing links will
 		 * never be accepted.
+		 * 链路一些参数可能有更新
 		 */
 		s.get(n1).remove(l);
 		s.get(n2).remove(l);
